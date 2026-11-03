@@ -1,5 +1,7 @@
 # Tiquet
 
+**Demo:** <https://tiquet-two.vercel.app>
+
 **Tiquet** es una web app instalable (PWA) para digitalizar tickets de compra con OCR
 en el propio dispositivo, clasificar el gasto por categorías y consultar cuánto has
 gastado cada mes. Todo se guarda localmente en el navegador: sin cuentas, sin servidores
