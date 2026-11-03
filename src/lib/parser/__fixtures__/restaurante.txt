@@ -1,0 +1,15 @@
+RESTAURANTE EL RINCON
+C/ SOL 4 - SEVILLA
+CIF B12345678
+FECHA: 02-11-2026
+MESA 7
+
+2 x CERVEZA 1,50        3,00
+1 x ENSALADA            6,50
+2 x PAELLA 12,00       24,00
+POSTRE                  4,50
+
+BASE IMPONIBLE         34,55
+IVA 10%                 3,45
+TOTAL A PAGAR          38,00
+TARJETA                38,00

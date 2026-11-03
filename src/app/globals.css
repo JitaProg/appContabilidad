@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #f5f4ef;
+  --color-paper-deep: #ecebe3;
+  --color-surface: #ffffff;
+  --color-ink: #12211d;
+  --color-ink-soft: #3d4d47;
+  --color-muted: #73827c;
+  --color-line: #e5e3da;
+  --color-brand: #0d6b5f;
+  --color-brand-dark: #085045;
+  --color-brand-soft: #e0f0eb;
+  --color-sun: #f4b942;
+  --color-danger: #c0392b;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #ffffff 0%, rgba(255, 255, 255, 0) 60%),
+    var(--color-paper);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  overscroll-behavior-y: none;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+/* Evita el zoom automático de iOS al enfocar campos */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+::selection {
+  background: #bfe5da;
+  color: #06231e;
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility safe-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+}
+
+@utility safe-top {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+@utility animate-rise {
+  animation: rise 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility animate-pop {
+  animation: pop 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility skeleton {
+  background-image: linear-gradient(90deg, #eceae3 0px, #f6f5f0 40px, #eceae3 80px);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+/* Scrollbar discreto en escritorio */
+@media (pointer: fine) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #cfccc1 transparent;
+  }
+}
