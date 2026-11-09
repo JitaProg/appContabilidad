@@ -101,11 +101,17 @@ En <https://supabase.com/dashboard/project/tekpznxyrykcqosppwet/auth/url-configu
 
 - **Site URL:** `https://tiquet-two.vercel.app`
 - **Redirect URLs:**
-  - `http://localhost:3000/auth/callback`
-  - `https://tiquet-two.vercel.app/auth/callback`
+  - `http://localhost:3000/auth/callback**`
+  - `https://tiquet-two.vercel.app/auth/callback**`
 
-Si usas dominios de preview de Vercel, añade también el patrón correspondiente
-(`https://*.vercel.app/**`).
+El `**` final permite que Supabase acepte el parámetro `?next=` que añade la app al
+`redirectTo`. Si usas dominios de preview de Vercel, añade también el patrón
+correspondiente (`https://*-<tu-equipo>.vercel.app/**`).
+
+Mientras la app de Google esté en modo **Testing**, añade tu cuenta como usuario de
+prueba en **Google Auth Platform → Audience → Test users**; si no, Google mostrará
+«Acceso bloqueado». Al publicar la app (solo se usan scopes básicos) desaparece ese
+límite y la sesión de prueba deja de caducar a los 7 días.
 
 El flujo completo es:
 
