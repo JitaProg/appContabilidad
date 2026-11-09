@@ -1,11 +1,11 @@
 /* Service worker de Tiquet.
  * Estrategia:
  *  - Navegaciones: red primero, con la página cacheada como respaldo offline.
- *  - Estáticos de Next, iconos y diccionario OCR: caché primero.
- *  - Motor OCR de jsDelivr: caché primero (primera vez requiere red).
+ *  - Estáticos de Next e iconos: caché primero.
+ *  - Resto de recursos propios: stale-while-revalidate.
  */
 
-const VERSION = "tiquet-v2";
+const VERSION = "tiquet-v3";
 const SHELL_CACHE = `${VERSION}-shell`;
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
@@ -14,7 +14,6 @@ const SHELL_ROUTES = [
   "/",
   "/receipts",
   "/receipts/new",
-  "/scan",
   "/stats",
   "/settings",
   "/manifest.webmanifest",
@@ -24,10 +23,7 @@ const SHELL_ROUTES = [
   "/icons/apple-touch-icon.png",
 ];
 
-const PRECACHE_URLS = [
-  ...SHELL_ROUTES,
-  "/tessdata/spa.traineddata.gz",
-];
+const PRECACHE_URLS = [...SHELL_ROUTES];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -91,21 +87,16 @@ self.addEventListener("fetch", (event) => {
 
     if (
       url.pathname.startsWith("/_next/static/") ||
-      url.pathname.startsWith("/icons/") ||
-      url.pathname.startsWith("/tessdata/")
+      url.pathname.startsWith("/icons/")
     ) {
       event.respondWith(cacheFirst(request, STATIC_CACHE));
       return;
     }
 
-    if (/\.(?:css|js|png|jpe?g|webp|svg|woff2?|gz|wasm)$/.test(url.pathname)) {
+    if (/\.(?:css|js|png|jpe?g|webp|svg|woff2?)$/.test(url.pathname)) {
       event.respondWith(staleWhileRevalidate(request, RUNTIME_CACHE));
       return;
     }
-  }
-
-  if (url.hostname === "cdn.jsdelivr.net") {
-    event.respondWith(cacheFirst(request, RUNTIME_CACHE));
   }
 });
 

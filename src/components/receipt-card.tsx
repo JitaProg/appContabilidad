@@ -5,13 +5,9 @@ import { ChevronRight } from "lucide-react";
 import type { Receipt } from "@/lib/db";
 import { formatEUR } from "@/lib/money";
 import { relativeDayLabel } from "@/lib/dates";
-import { useCategoryMap } from "@/lib/hooks";
 import { BlobImage } from "@/components/blob-image";
 
 export function ReceiptCard({ receipt }: { receipt: Receipt }) {
-  const categories = useCategoryMap();
-  const category = categories.get(receipt.categoryId);
-
   return (
     <Link
       href={`/receipts/${receipt.id}`}
@@ -27,16 +23,8 @@ export function ReceiptCard({ receipt }: { receipt: Receipt }) {
         <p className="truncate text-[0.95rem] font-semibold leading-tight text-ink">
           {receipt.merchant}
         </p>
-        <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-muted">
-          <span>{relativeDayLabel(receipt.purchaseDate)}</span>
-          {category ? (
-            <>
-              <span aria-hidden>·</span>
-              <span className="truncate">
-                {category.emoji} {category.name}
-              </span>
-            </>
-          ) : null}
+        <p className="mt-0.5 truncate text-xs text-muted">
+          {relativeDayLabel(receipt.purchaseDate)}
         </p>
       </div>
 

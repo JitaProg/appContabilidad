@@ -12,3 +12,11 @@ export function clamp(value: number, min: number, max: number) {
 export function plural(count: number, singular: string, pluralForm: string) {
   return count === 1 ? singular : pluralForm;
 }
+
+/** Minúsculas y sin acentos, para buscar sin preocuparse por tildes. */
+export function normalizeForMatch(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}

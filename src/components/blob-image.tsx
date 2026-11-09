@@ -8,11 +8,13 @@ export function BlobImage({
   blob,
   alt,
   className,
+  style,
   onClick,
 }: {
   blob: Blob | null | undefined;
   alt: string;
   className?: string;
+  style?: React.CSSProperties;
   onClick?: () => void;
 }) {
   const [url, setUrl] = useState<string | null>(null);
@@ -52,6 +54,7 @@ export function BlobImage({
       src={url}
       alt={alt}
       onClick={onClick}
+      style={style}
       className={cn("object-cover", onClick && "cursor-zoom-in", className)}
     />
   );

@@ -9,23 +9,15 @@ import { MonthSwitcher } from "@/components/month-switcher";
 import { ReceiptCard } from "@/components/receipt-card";
 import { EmptyState, Input, Skeleton } from "@/components/ui";
 import { useMonth } from "@/components/providers";
-import { useCategories } from "@/lib/hooks";
 import { allReceipts, receiptsInMonth, type Receipt } from "@/lib/db";
 import { formatEUR } from "@/lib/money";
 import { relativeDayLabel, weekdayShort } from "@/lib/dates";
-import { normalizeForMatch } from "@/lib/categories";
-import { cn } from "@/lib/utils";
+import { cn, normalizeForMatch } from "@/lib/utils";
 
 export default function ReceiptsPage() {
   const { month, ready } = useMonth();
-  const categories = useCategories();
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
-
-  const categoryNames = useMemo(
-    () => new Map(categories.map((category) => [category.id, category.name])),
-    [categories],
-  );
 
   const receipts = useLiveQuery(async () => {
     if (showAll) {
@@ -40,15 +32,10 @@ export default function ReceiptsPage() {
     const needle = normalizeForMatch(query.trim());
     if (!needle) return list;
 
-    return list.filter((receipt) => {
-      const haystack = normalizeForMatch(
-        `${receipt.merchant} ${receipt.notes ?? ""} ${
-          categoryNames.get(receipt.categoryId) ?? ""
-        } ${receipt.merchantNif ?? ""}`,
-      );
-      return haystack.includes(needle);
-    });
-  }, [receipts, query, categoryNames]);
+    return list.filter((receipt) =>
+      normalizeForMatch(receipt.merchant).includes(needle),
+    );
+  }, [receipts, query]);
 
   const groups = useMemo(() => {
     const map = new Map<string, Receipt[]>();
@@ -79,7 +66,7 @@ export default function ReceiptsPage() {
         action={
           <Link
             href="/receipts/new"
-            aria-label="Añadir ticket a mano"
+            aria-label="Añadir ticket"
             className="flex size-10 items-center justify-center rounded-full border border-line bg-surface text-ink-soft transition-colors hover:bg-paper-deep"
           >
             <Plus className="size-5" />
@@ -124,7 +111,7 @@ export default function ReceiptsPage() {
           <Input
             type="search"
             inputMode="search"
-            placeholder="Buscar comercio, nota o categoría"
+            placeholder="Buscar comercio"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             className="pl-11 pr-11"
@@ -159,8 +146,8 @@ export default function ReceiptsPage() {
                 query
                   ? "Prueba con otro nombre de comercio o cambia el filtro."
                   : showAll
-                    ? "Cuando escanees o añadas un ticket aparecerá aquí."
-                    : "En este mes no hay tickets guardados. Cambia de mes o escanea uno nuevo."
+                    ? "Cuando añadas un ticket aparecerá aquí."
+                    : "En este mes no hay tickets guardados. Cambia de mes o añade uno nuevo."
               }
               action={
                 query ? (
@@ -173,10 +160,10 @@ export default function ReceiptsPage() {
                   </button>
                 ) : (
                   <Link
-                    href="/scan"
+                    href="/receipts/new"
                     className="text-sm font-semibold text-brand"
                   >
-                    Escanear un ticket
+                    Añadir un ticket
                   </Link>
                 )
               }

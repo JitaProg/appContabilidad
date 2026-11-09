@@ -13,7 +13,6 @@ import {
 } from "react";
 import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import { addMonths, currentMonth, isFutureMonth, isMonth } from "@/lib/dates";
-import { ensureSeedData } from "@/lib/db";
 import { AppLogo } from "@/components/app-logo";
 import { cn } from "@/lib/utils";
 
@@ -161,14 +160,6 @@ export function AppProviders({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    ensureSeedData().catch((error) => {
-      console.error(error);
-      showToast(
-        "No se ha podido preparar la base de datos local. Revisa el modo privado del navegador.",
-        "error",
-      );
-    });
-
     if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch((error) => {
         console.error("Service worker:", error);

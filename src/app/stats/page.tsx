@@ -8,7 +8,6 @@ import { MonthSwitcher } from "@/components/month-switcher";
 import { MonthlyBars } from "@/components/charts";
 import { Card, EmptyState, SectionTitle, Skeleton } from "@/components/ui";
 import { useMonth, useMounted } from "@/components/providers";
-import { useCategories, useCategoryMap } from "@/lib/hooks";
 import { receiptsBetween } from "@/lib/db";
 import {
   addMonths,
@@ -23,8 +22,6 @@ import { cn } from "@/lib/utils";
 
 export default function StatsPage() {
   const { month, ready } = useMonth();
-  const categories = useCategories();
-  const categoryMap = useCategoryMap();
   const mounted = useMounted();
 
   const startMonth = addMonths(month, -11);
@@ -58,10 +55,7 @@ export default function StatsPage() {
 
   return (
     <div className="animate-rise">
-      <PageHeader
-        title="Estadísticas"
-        subtitle="Dónde se va tu dinero"
-      />
+      <PageHeader title="Estadísticas" subtitle="Dónde se va tu dinero" />
 
       <div className="space-y-6 px-5 pt-4">
         <MonthSwitcher />
@@ -76,7 +70,7 @@ export default function StatsPage() {
           <EmptyState
             icon={<ChartPie className="size-6" />}
             title="Aún no hay estadísticas"
-            description="Cuando guardes tickets verás aquí la evolución mensual, las categorías con más gasto y los comercios donde más gastas."
+            description="Cuando guardes tickets verás aquí la evolución mensual y los comercios donde más gastas."
           />
         ) : (
           <>
@@ -135,9 +129,9 @@ export default function StatsPage() {
                 </p>
               </Card>
               <Card className="p-4">
-                <p className="text-xs text-muted">Categorías usadas</p>
+                <p className="text-xs text-muted">Comercios</p>
                 <p className="tabular mt-1 text-xl font-semibold text-ink">
-                  {summary.byCategory.length}
+                  {summary.merchantCount}
                 </p>
               </Card>
             </section>
@@ -149,48 +143,6 @@ export default function StatsPage() {
                   <MonthlyBars data={series} selectedMonth={month} />
                 ) : (
                   <Skeleton className="h-48 w-full" />
-                )}
-              </Card>
-            </section>
-
-            <section>
-              <SectionTitle>Gasto por categoría</SectionTitle>
-              <Card className="space-y-3 p-5">
-                {summary.byCategory.length === 0 ? (
-                  <p className="text-sm text-muted">Sin gastos este mes.</p>
-                ) : (
-                  summary.byCategory.map((item) => {
-                    const category = categoryMap.get(item.categoryId);
-                    const share =
-                      summary.totalCents > 0
-                        ? Math.round((item.totalCents / summary.totalCents) * 100)
-                        : 0;
-
-                    return (
-                      <div key={item.categoryId}>
-                        <div className="mb-1 flex items-baseline justify-between gap-2 text-sm">
-                          <span className="min-w-0 truncate font-medium text-ink-soft">
-                            {category?.emoji} {category?.name ?? "Otros"}
-                          </span>
-                          <span className="tabular shrink-0 font-semibold text-ink">
-                            {formatEUR(item.totalCents)}
-                            <span className="ml-1.5 text-xs font-normal text-muted">
-                              {share} %
-                            </span>
-                          </span>
-                        </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-paper-deep">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${share}%`,
-                              backgroundColor: category?.color ?? "#64748b",
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })
                 )}
               </Card>
             </section>
@@ -227,7 +179,7 @@ export default function StatsPage() {
             <div className="flex items-start gap-2.5 rounded-2xl border border-line bg-surface/70 px-4 py-3 text-xs leading-relaxed text-muted">
               <Store className="mt-0.5 size-4 shrink-0 text-brand" />
               <p>
-                Los importes salen de los tickets que has guardado. Si un ticket
+                Los importes salen del precio final de tus tickets. Si un ticket
                 incluye devoluciones o descuentos, edítalo para que el total sea
                 exacto.
               </p>
@@ -235,7 +187,7 @@ export default function StatsPage() {
 
             <p className="flex items-center justify-center gap-1.5 pb-2 text-[0.7rem] text-muted">
               <TrendingUp className="size-3.5" />
-              {categories.length} categorías disponibles
+              {summary.count} {summary.count === 1 ? "ticket" : "tickets"} este mes
             </p>
           </>
         )}

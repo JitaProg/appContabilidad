@@ -1,12 +1,6 @@
 import type { Receipt } from "./db";
 import { daysElapsedInMonth, lastMonths, monthOf } from "./dates";
 
-export interface CategoryTotal {
-  categoryId: string;
-  totalCents: number;
-  count: number;
-}
-
 export interface MerchantTotal {
   merchant: string;
   totalCents: number;
@@ -20,7 +14,7 @@ export interface MonthSummary {
   averageCents: number;
   dailyAverageCents: number;
   largestCents: number;
-  byCategory: CategoryTotal[];
+  merchantCount: number;
   topMerchants: MerchantTotal[];
 }
 
@@ -32,19 +26,9 @@ export function summarizeMonth(
   const totalCents = monthReceipts.reduce((sum, receipt) => sum + receipt.totalCents, 0);
   const count = monthReceipts.length;
 
-  const categoryMap = new Map<string, CategoryTotal>();
   const merchantMap = new Map<string, MerchantTotal>();
 
   for (const receipt of monthReceipts) {
-    const category = categoryMap.get(receipt.categoryId) ?? {
-      categoryId: receipt.categoryId,
-      totalCents: 0,
-      count: 0,
-    };
-    category.totalCents += receipt.totalCents;
-    category.count += 1;
-    categoryMap.set(receipt.categoryId, category);
-
     const merchantKey = receipt.merchant.trim();
     const merchant = merchantMap.get(merchantKey) ?? {
       merchant: merchantKey,
@@ -56,7 +40,6 @@ export function summarizeMonth(
     merchantMap.set(merchantKey, merchant);
   }
 
-  const byCategory = [...categoryMap.values()].sort((a, b) => b.totalCents - a.totalCents);
   const topMerchants = [...merchantMap.values()]
     .sort((a, b) => b.totalCents - a.totalCents)
     .slice(0, 5);
@@ -72,7 +55,7 @@ export function summarizeMonth(
       (largest, receipt) => Math.max(largest, receipt.totalCents),
       0,
     ),
-    byCategory,
+    merchantCount: merchantMap.size,
     topMerchants,
   };
 }

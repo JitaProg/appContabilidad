@@ -1,8 +1,6 @@
 export interface ProcessedImage {
   /** Imagen comprimida a color para guardar y mostrar. */
   full: Blob;
-  /** Versión en escala de grises y con contraste para el OCR. */
-  ocr: Blob;
   /** Miniatura para listados. */
   thumb: Blob;
   width: number;
@@ -16,9 +14,8 @@ interface Drawable {
   cleanup: () => void;
 }
 
-const FULL_MAX_SIZE = 1500;
-const OCR_MAX_SIZE = 2200;
-const THUMB_MAX_SIZE = 320;
+const FULL_MAX_SIZE = 1800;
+const THUMB_MAX_SIZE = 360;
 
 async function loadDrawable(blob: Blob): Promise<Drawable> {
   if (typeof createImageBitmap === "function") {
@@ -57,7 +54,7 @@ async function loadDrawable(blob: Blob): Promise<Drawable> {
 
 function render(
   drawable: Drawable,
-  options: { rotation: number; maxSize: number; filter?: string; background?: string },
+  options: { rotation: number; maxSize: number; background?: string },
 ) {
   const rotation = ((options.rotation % 360) + 360) % 360;
   const swap = rotation === 90 || rotation === 270;
@@ -79,14 +76,6 @@ function render(
 
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
-
-  if (options.filter) {
-    try {
-      context.filter = options.filter;
-    } catch {
-      // Navegador sin soporte de filtros canvas.
-    }
-  }
 
   context.translate(canvas.width / 2, canvas.height / 2);
   context.rotate((rotation * Math.PI) / 180);
@@ -116,27 +105,19 @@ export async function processReceiptImage(
 
   try {
     const fullCanvas = render(drawable, { rotation, maxSize: FULL_MAX_SIZE });
-    const ocrCanvas = render(drawable, {
-      rotation,
-      maxSize: OCR_MAX_SIZE,
-      filter: "grayscale(1) contrast(1.32) brightness(1.05)",
-      background: "#ffffff",
-    });
     const thumbCanvas = render(drawable, {
       rotation,
       maxSize: THUMB_MAX_SIZE,
       background: "#ffffff",
     });
 
-    const [full, ocr, thumb] = await Promise.all([
-      canvasToBlob(fullCanvas, 0.85),
-      canvasToBlob(ocrCanvas, 0.92),
+    const [full, thumb] = await Promise.all([
+      canvasToBlob(fullCanvas, 0.9),
       canvasToBlob(thumbCanvas, 0.72),
     ]);
 
     return {
       full,
-      ocr,
       thumb,
       width: fullCanvas.width,
       height: fullCanvas.height,
@@ -144,9 +125,4 @@ export async function processReceiptImage(
   } finally {
     drawable.cleanup();
   }
-}
-
-export function createPreviewUrl(blob: Blob | null | undefined) {
-  if (!blob) return null;
-  return URL.createObjectURL(blob);
 }

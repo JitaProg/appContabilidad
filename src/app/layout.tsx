@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     template: "%s · Tiquet",
   },
   description:
-    "Escanea tus tickets de compra, digitalízalos y consulta el total gastado cada mes. Todo se guarda en tu dispositivo.",
+    "Guarda una foto de cada ticket con su importe final, comercio y fecha, y consulta lo que gastas cada mes. Todo se guarda en tu dispositivo.",
   applicationName: "Tiquet",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

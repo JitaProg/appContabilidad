@@ -5,8 +5,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -23,58 +21,6 @@ const TOOLTIP_STYLE = {
   padding: "8px 12px",
   color: "#12211d",
 };
-
-export interface DonutDatum {
-  name: string;
-  value: number;
-  color: string;
-}
-
-export function CategoryDonut({
-  data,
-  totalCents,
-}: {
-  data: DonutDatum[];
-  totalCents: number;
-}) {
-  return (
-    <div className="relative h-52 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="value"
-            nameKey="name"
-            innerRadius={62}
-            outerRadius={92}
-            paddingAngle={data.length > 1 ? 2 : 0}
-            stroke="none"
-            startAngle={90}
-            endAngle={-270}
-            isAnimationActive={false}
-          >
-            {data.map((entry) => (
-              <Cell key={entry.name} fill={entry.color} />
-            ))}
-          </Pie>
-          <Tooltip
-            contentStyle={TOOLTIP_STYLE}
-            formatter={(value) => [formatEUR(Number(value)), "Gastado"]}
-          />
-        </PieChart>
-      </ResponsiveContainer>
-
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[0.68rem] font-medium uppercase tracking-[0.12em] text-muted">
-          Total
-        </span>
-        <span className="tabular mt-0.5 text-xl font-semibold tracking-tight text-ink">
-          {formatEUR(totalCents)}
-        </span>
-      </div>
-    </div>
-  );
-}
 
 export interface MonthBarDatum {
   month: string;

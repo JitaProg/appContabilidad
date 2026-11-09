@@ -1,47 +1,14 @@
 import Dexie, { type EntityTable } from "dexie";
-import { DEFAULT_CATEGORIES, type Category } from "./categories";
 import { monthDateRange } from "./dates";
-
-export interface VatEntry {
-  rate: number;
-  baseCents: number | null;
-  amountCents: number | null;
-}
 
 export interface Receipt {
   id: number;
   createdAt: string;
   purchaseDate: string;
   merchant: string;
-  merchantNif: string | null;
   totalCents: number;
-  categoryId: string;
-  notes: string | null;
-  rawText: string | null;
-  ocrConfidence: number | null;
-  source: "ocr" | "manual";
-  vat: VatEntry[];
   image: Blob | null;
   thumb: Blob | null;
-}
-
-export interface ReceiptItem {
-  id: number;
-  receiptId: number;
-  description: string;
-  totalCents: number;
-  qty: number | null;
-}
-
-export interface Setting {
-  key: string;
-  value: string;
-}
-
-export interface ReceiptItemDraft {
-  description: string;
-  totalCents: number;
-  qty?: number | null;
 }
 
 export interface ReceiptDraft {
@@ -49,22 +16,12 @@ export interface ReceiptDraft {
   purchaseDate: string;
   merchant: string;
   totalCents: number;
-  categoryId: string;
-  notes?: string | null;
-  merchantNif?: string | null;
-  rawText?: string | null;
-  ocrConfidence?: number | null;
-  source: "ocr" | "manual";
-  vat?: VatEntry[];
   image?: Blob | null;
   thumb?: Blob | null;
 }
 
 class TiquetDatabase extends Dexie {
   receipts!: EntityTable<Receipt, "id">;
-  items!: EntityTable<ReceiptItem, "id">;
-  categories!: EntityTable<Category, "id">;
-  settings!: EntityTable<Setting, "key">;
 
   constructor() {
     super("tiquet");
@@ -75,6 +32,14 @@ class TiquetDatabase extends Dexie {
       items: "++id, receiptId",
       categories: "id, sort",
       settings: "key",
+    });
+
+    // Modelo actual: un ticket es una foto con importe, comercio y fecha.
+    // Las versiones antiguas guardaban artículos, categorías y datos de OCR;
+    // esos stores se eliminan al actualizar la base de datos.
+    this.version(2).stores({
+      receipts:
+        "++id, purchaseDate, merchant, totalCents, createdAt, [purchaseDate+totalCents]",
     });
   }
 }
@@ -87,109 +52,33 @@ if (process.env.NODE_ENV !== "production") {
   globalForDb.tiquetDb = db;
 }
 
-let seedPromise: Promise<void> | null = null;
-
-export function ensureSeedData() {
-  seedPromise ??= (async () => {
-    const categoryCount = await db.categories.count();
-    if (categoryCount === 0) {
-      await db.categories.bulkAdd(DEFAULT_CATEGORIES);
-    }
-
-    const welcome = await db.settings.get("welcomeSeen");
-    if (!welcome) {
-      await db.settings.put({ key: "welcomeSeen", value: "0" });
-    }
-  })();
-
-  return seedPromise;
-}
-
-export async function createReceipt(
-  draft: ReceiptDraft,
-  items: ReceiptItemDraft[] = [],
-) {
-  return db.transaction("rw", db.receipts, db.items, async () => {
-    const receiptId = await db.receipts.add({
-      createdAt: draft.createdAt ?? new Date().toISOString(),
-      purchaseDate: draft.purchaseDate,
-      merchant: draft.merchant,
-      merchantNif: draft.merchantNif ?? null,
-      totalCents: draft.totalCents,
-      categoryId: draft.categoryId,
-      notes: draft.notes ?? null,
-      rawText: draft.rawText ?? null,
-      ocrConfidence: draft.ocrConfidence ?? null,
-      source: draft.source,
-      vat: draft.vat ?? [],
-      image: draft.image ?? null,
-      thumb: draft.thumb ?? null,
-    });
-
-    if (items.length > 0) {
-      await db.items.bulkAdd(
-        items.map((item) => ({
-          receiptId,
-          description: item.description,
-          totalCents: item.totalCents,
-          qty: item.qty ?? null,
-        })),
-      );
-    }
-
-    return receiptId;
+export async function createReceipt(draft: ReceiptDraft) {
+  return db.receipts.add({
+    createdAt: draft.createdAt ?? new Date().toISOString(),
+    purchaseDate: draft.purchaseDate,
+    merchant: draft.merchant,
+    totalCents: draft.totalCents,
+    image: draft.image ?? null,
+    thumb: draft.thumb ?? null,
   });
 }
 
-export async function updateReceipt(
-  id: number,
-  draft: ReceiptDraft,
-  items: ReceiptItemDraft[] = [],
-) {
-  return db.transaction("rw", db.receipts, db.items, async () => {
-    await db.receipts.update(id, {
-      purchaseDate: draft.purchaseDate,
-      merchant: draft.merchant,
-      merchantNif: draft.merchantNif ?? null,
-      totalCents: draft.totalCents,
-      categoryId: draft.categoryId,
-      notes: draft.notes ?? null,
-      rawText: draft.rawText ?? null,
-      ocrConfidence: draft.ocrConfidence ?? null,
-      source: draft.source,
-      vat: draft.vat ?? [],
-      image: draft.image ?? null,
-      thumb: draft.thumb ?? null,
-    });
-
-    await db.items.where("receiptId").equals(id).delete();
-
-    if (items.length > 0) {
-      await db.items.bulkAdd(
-        items.map((item) => ({
-          receiptId: id,
-          description: item.description,
-          totalCents: item.totalCents,
-          qty: item.qty ?? null,
-        })),
-      );
-    }
+export async function updateReceipt(id: number, draft: ReceiptDraft) {
+  await db.receipts.update(id, {
+    purchaseDate: draft.purchaseDate,
+    merchant: draft.merchant,
+    totalCents: draft.totalCents,
+    image: draft.image ?? null,
+    thumb: draft.thumb ?? null,
   });
 }
 
 export async function deleteReceipt(id: number) {
-  return db.transaction("rw", db.receipts, db.items, async () => {
-    await db.items.where("receiptId").equals(id).delete();
-    await db.receipts.delete(id);
-  });
+  await db.receipts.delete(id);
 }
 
 export async function getReceipt(id: number) {
   return db.receipts.get(id);
-}
-
-export async function itemsForReceipt(receiptId: number) {
-  return db.items.where("receiptId").equals(receiptId).toArray();
 }
 
 export async function receiptsInMonth(month: string) {
@@ -232,22 +121,6 @@ export async function findPossibleDuplicate(receipt: {
   );
 }
 
-export async function getSetting(key: string) {
-  const setting = await db.settings.get(key);
-  return setting?.value ?? null;
-}
-
-export async function setSetting(key: string, value: string) {
-  return db.settings.put({ key, value });
-}
-
 export async function clearAllData() {
-  return db.transaction("rw", db.receipts, db.items, db.categories, db.settings, async () => {
-    await db.receipts.clear();
-    await db.items.clear();
-    await db.categories.clear();
-    await db.settings.clear();
-    seedPromise = null;
-    await ensureSeedData();
-  });
+  await db.receipts.clear();
 }

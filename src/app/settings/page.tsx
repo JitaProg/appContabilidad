@@ -40,7 +40,6 @@ export default function SettingsPage() {
   const [usageBytes, setUsageBytes] = useState<number | null>(null);
 
   const receiptCount = useLiveQuery(() => db.receipts.count(), []);
-  const itemCount = useLiveQuery(() => db.items.count(), []);
 
   useEffect(() => {
     if (typeof navigator === "undefined" || !navigator.storage?.estimate) return;
@@ -49,18 +48,17 @@ export default function SettingsPage() {
       .estimate()
       .then((estimate) => setUsageBytes(estimate.usage ?? 0))
       .catch(() => setUsageBytes(null));
-  }, [receiptCount, itemCount]);
+  }, [receiptCount]);
 
   async function handleExportCsv() {
     const receipts = await db.receipts.toArray();
-    const categories = await db.categories.toArray();
 
     if (receipts.length === 0) {
       showToast("Todavía no hay tickets que exportar.", "info");
       return;
     }
 
-    exportCsv(receipts, categories);
+    exportCsv(receipts);
     showToast(`CSV creado con ${receipts.length} tickets.`);
   }
 
@@ -83,7 +81,9 @@ export default function SettingsPage() {
     try {
       const result = await importBackup(file);
       showToast(
-        `Copia restaurada: ${result.receipts} tickets y ${result.items} artículos.`,
+        `Copia restaurada: ${result.receipts} ${
+          result.receipts === 1 ? "ticket" : "tickets"
+        }.`,
       );
     } catch (error) {
       console.error(error);
@@ -123,11 +123,9 @@ export default function SettingsPage() {
                 )}
               </p>
               <p className="mt-0.5 text-xs text-muted">
-                {itemCount === undefined
-                  ? "Calculando…"
-                  : `${formatInteger(itemCount)} artículos · ${
-                      usageBytes === null ? "espacio local" : formatBytes(usageBytes)
-                    }`}
+                {usageBytes === null
+                  ? "Fotos y datos en este dispositivo"
+                  : `${formatBytes(usageBytes)} en este dispositivo`}
               </p>
             </div>
             <HardDrive className="size-4 text-muted" />
@@ -174,7 +172,7 @@ export default function SettingsPage() {
                   Descargar copia completa
                 </span>
                 <span className="block text-xs text-muted">
-                  ZIP con tickets, fotos y artículos
+                  ZIP con tickets y sus fotos
                 </span>
               </span>
               <ChevronRight className="size-4 text-muted" />
@@ -234,16 +232,16 @@ export default function SettingsPage() {
             <div className="flex gap-3">
               <Lock className="mt-0.5 size-4 shrink-0 text-brand" />
               <p className="text-xs leading-relaxed text-muted">
-                Tus tickets se guardan solo en este dispositivo, dentro del
-                almacenamiento del navegador. No hay cuentas, servidores ni
-                analítica.
+                Las fotos de tus tickets se guardan solo en este dispositivo,
+                dentro del almacenamiento del navegador. No hay cuentas, servidores
+                ni analítica.
               </p>
             </div>
             <div className="flex gap-3">
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-brand" />
               <p className="text-xs leading-relaxed text-muted">
-                El texto de las fotos se reconoce en tu propio móvil. La imagen no
-                se envía a ningún servicio externo.
+                Las imágenes no se envían a ningún servicio externo ni se procesan
+                con reconocimiento de texto.
               </p>
             </div>
           </Card>
@@ -259,7 +257,7 @@ export default function SettingsPage() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-ink">Borrar todos los datos</p>
                 <p className="mt-0.5 text-xs leading-relaxed text-muted">
-                  Elimina tickets, fotos y ajustes de este dispositivo. Exporta una
+                  Elimina los tickets y sus fotos de este dispositivo. Exporta una
                   copia antes si quieres conservarlos.
                 </p>
                 <Button
@@ -276,7 +274,7 @@ export default function SettingsPage() {
         </section>
 
         <footer className="pb-4 text-center text-[0.7rem] leading-relaxed text-muted">
-          <p className="font-semibold text-ink-soft">Tiquet · v1.0</p>
+          <p className="font-semibold text-ink-soft">Tiquet · v2.0</p>
           <p className="mt-0.5">Hecho para llevar tus gastos sin complicaciones.</p>
         </footer>
       </div>
@@ -285,7 +283,7 @@ export default function SettingsPage() {
         open={confirmClear}
         onClose={() => setConfirmClear(false)}
         title="¿Borrar todos los datos?"
-        description="Se eliminarán todos los tickets, fotos y ajustes guardados en este dispositivo. Esta acción no se puede deshacer."
+        description="Se eliminarán todos los tickets y fotos guardados en este dispositivo. Esta acción no se puede deshacer."
         footer={
           <>
             <Button variant="outline" fullWidth onClick={() => setConfirmClear(false)}>

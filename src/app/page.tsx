@@ -16,12 +16,10 @@ import { addMonths, currentMonth } from "@/lib/dates";
 import { receiptsInMonth } from "@/lib/db";
 import { formatEUR, formatPercentChange } from "@/lib/money";
 import { summarizeMonth } from "@/lib/stats";
-import { useCategories } from "@/lib/hooks";
 import { useMonth } from "@/components/providers";
 import { AppLogo } from "@/components/app-logo";
 import { MonthSwitcher } from "@/components/month-switcher";
 import { ReceiptCard } from "@/components/receipt-card";
-import { CategoryDonut } from "@/components/charts";
 import {
   buttonStyles,
   Card,
@@ -33,11 +31,6 @@ import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
   const { month, ready } = useMonth();
-  const categories = useCategories();
-  const categoryMap = useMemo(
-    () => new Map(categories.map((category) => [category.id, category])),
-    [categories],
-  );
 
   const receipts = useLiveQuery(() => receiptsInMonth(month), [month]);
   const previousReceipts = useLiveQuery(
@@ -57,15 +50,6 @@ export default function DashboardPage() {
   const loading = !ready || receipts === undefined;
   const hasReceipts = (receipts?.length ?? 0) > 0;
   const isCurrentMonth = month === currentMonth();
-
-  const donutData = summary.byCategory.slice(0, 6).map((item) => {
-    const category = categoryMap.get(item.categoryId);
-    return {
-      name: category?.name ?? "Otros",
-      value: item.totalCents,
-      color: category?.color ?? "#64748b",
-    };
-  });
 
   const delta = summary.totalCents - previousTotal;
   const percent = formatPercentChange(summary.totalCents, previousTotal);
@@ -94,7 +78,7 @@ export default function DashboardPage() {
           <MonthSwitcher />
           <Link
             href="/receipts/new"
-            aria-label="Añadir ticket a mano"
+            aria-label="Añadir ticket"
             className="flex size-10 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink-soft transition-colors hover:bg-paper-deep"
           >
             <Plus className="size-5" />
@@ -156,8 +140,8 @@ export default function DashboardPage() {
           <div className="space-y-3">
             <Skeleton className="h-6 w-40" />
             <Card className="space-y-3 p-4">
-              <Skeleton className="h-40 w-full" />
-              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
             </Card>
             <Skeleton className="h-16 w-full" />
             <Skeleton className="h-16 w-full" />
@@ -167,21 +151,12 @@ export default function DashboardPage() {
             <EmptyState
               icon={<Camera className="size-6" />}
               title="Empieza con tu primer ticket"
-              description="Hazle una foto al ticket de compra y la app leerá el comercio, la fecha y el total. Luego solo tienes que confirmar."
+              description="Hazle una foto al ticket y apunta el importe final, el comercio y la fecha. La foto se queda en tu dispositivo."
               action={
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Link href="/scan" className={buttonStyles()}>
-                    <Camera className="size-4" />
-                    Escanear ticket
-                  </Link>
-                  <Link
-                    href="/receipts/new"
-                    className={buttonStyles({ variant: "outline" })}
-                  >
-                    <Plus className="size-4" />
-                    Añadir a mano
-                  </Link>
-                </div>
+                <Link href="/receipts/new" className={buttonStyles()}>
+                  <Camera className="size-4" />
+                  Añadir ticket
+                </Link>
               }
             />
 
@@ -206,40 +181,35 @@ export default function DashboardPage() {
                   </Link>
                 }
               >
-                Resumen por categoría
+                Este mes
               </SectionTitle>
 
-              <Card className="p-4">
-                <CategoryDonut data={donutData} totalCents={summary.totalCents} />
-
-                <ul className="mt-2 space-y-2.5">
-                  {summary.byCategory.slice(0, 5).map((item) => {
-                    const category = categoryMap.get(item.categoryId);
-                    const share =
-                      summary.totalCents > 0
-                        ? Math.round((item.totalCents / summary.totalCents) * 100)
-                        : 0;
-
-                    return (
-                      <li key={item.categoryId} className="flex items-center gap-3">
-                        <span
-                          className="size-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: category?.color ?? "#64748b" }}
-                        />
-                        <span className="min-w-0 flex-1 truncate text-sm text-ink-soft">
-                          {category?.emoji} {category?.name ?? "Otros"}
-                        </span>
-                        <span className="tabular text-sm font-semibold text-ink">
-                          {formatEUR(item.totalCents)}
-                        </span>
-                        <span className="tabular w-9 text-right text-xs text-muted">
-                          {share} %
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </Card>
+              <div className="grid grid-cols-3 gap-2">
+                <Card className="p-3.5">
+                  <p className="text-[0.65rem] leading-tight text-muted">
+                    Media por ticket
+                  </p>
+                  <p className="tabular mt-1 truncate text-[0.95rem] font-semibold tracking-tight text-ink">
+                    {formatEUR(summary.averageCents)}
+                  </p>
+                </Card>
+                <Card className="p-3.5">
+                  <p className="text-[0.65rem] leading-tight text-muted">
+                    Ticket más alto
+                  </p>
+                  <p className="tabular mt-1 truncate text-[0.95rem] font-semibold tracking-tight text-ink">
+                    {formatEUR(summary.largestCents)}
+                  </p>
+                </Card>
+                <Card className="p-3.5">
+                  <p className="text-[0.65rem] leading-tight text-muted">
+                    Comercios
+                  </p>
+                  <p className="tabular mt-1 truncate text-[0.95rem] font-semibold tracking-tight text-ink">
+                    {summary.merchantCount}
+                  </p>
+                </Card>
+              </div>
             </section>
 
             <section>
@@ -265,16 +235,18 @@ export default function DashboardPage() {
             </section>
 
             <Link
-              href="/scan"
+              href="/receipts/new"
               className="flex items-center gap-3 rounded-2xl border border-dashed border-brand/30 bg-brand-soft/50 px-4 py-3.5 transition-colors active:bg-brand-soft"
             >
               <span className="flex size-10 items-center justify-center rounded-xl bg-brand text-white">
                 <Camera className="size-5" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-ink">Escanear otro ticket</span>
+                <span className="block text-sm font-semibold text-ink">
+                  Añadir otro ticket
+                </span>
                 <span className="block text-xs text-muted">
-                  Haz una foto y revisa los datos antes de guardar
+                  Haz una foto y guarda el importe final
                 </span>
               </span>
               <ChevronRight className="size-4 text-brand" />
