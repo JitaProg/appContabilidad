@@ -11,9 +11,12 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { AlertTriangle, CheckCircle2, Info, Loader2 } from "lucide-react";
 import { addMonths, currentMonth, isFutureMonth, isMonth } from "@/lib/dates";
 import { AppLogo } from "@/components/app-logo";
+import { AuthProvider, useAuth } from "@/components/auth-provider";
+import { ReceiptsProvider } from "@/components/receipts-provider";
 import { cn } from "@/lib/utils";
 
 /* -------------------------------------------------------------------------- */
@@ -61,35 +64,13 @@ interface MonthContextValue {
 
 const MonthContext = createContext<MonthContextValue | null>(null);
 
-const MONTH_STORAGE_KEY = "tiquet:selected-month";
-
-function readInitialMonth() {
-  const fallback = currentMonth();
-
-  try {
-    const stored = window.localStorage.getItem(MONTH_STORAGE_KEY);
-    if (isMonth(stored) && !isFutureMonth(stored)) {
-      return stored;
-    }
-  } catch {
-    // localStorage puede estar deshabilitado en modo privado.
-  }
-
-  return fallback;
-}
-
 function MonthProvider({ children }: { children: ReactNode }) {
   // Este proveedor solo se monta en el cliente (ver AppProviders).
-  const [month, setMonthValue] = useState<string>(readInitialMonth);
+  const [month, setMonthValue] = useState<string>(currentMonth);
 
   const setMonth = useCallback((next: string) => {
     if (!isMonth(next) || isFutureMonth(next)) return;
     setMonthValue(next);
-    try {
-      window.localStorage.setItem(MONTH_STORAGE_KEY, next);
-    } catch {
-      // Sin persistencia: no es crítico.
-    }
   }, []);
 
   const value = useMemo<MonthContextValue>(
@@ -107,6 +88,74 @@ function MonthProvider({ children }: { children: ReactNode }) {
   );
 
   return <MonthContext.Provider value={value}>{children}</MonthContext.Provider>;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              Pantallas de estado                           */
+/* -------------------------------------------------------------------------- */
+
+function Splash({ message = "Cargando tu cuenta…" }: { message?: string }) {
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-paper text-ink">
+      <AppLogo className="size-16 rounded-[22px]" />
+      <div className="text-center">
+        <p className="text-lg font-semibold tracking-tight">Tiquet</p>
+        <p className="mt-0.5 flex items-center justify-center gap-2 text-sm text-muted">
+          <Loader2 className="size-3.5 animate-spin" />
+          {message}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function SetupScreen() {
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-5 bg-paper px-6 text-center text-ink">
+      <AppLogo className="size-16 rounded-[22px]" />
+      <div>
+        <p className="text-lg font-semibold tracking-tight">Tiquet</p>
+        <h1 className="mt-4 text-xl font-semibold tracking-tight">
+          Falta conectar Supabase
+        </h1>
+        <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">
+          Añade <code className="rounded bg-paper-deep px-1">NEXT_PUBLIC_SUPABASE_URL</code> y{" "}
+          <code className="rounded bg-paper-deep px-1">
+            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+          </code>{" "}
+          en <code className="rounded bg-paper-deep px-1">.env.local</code>, reinicia el
+          servidor y vuelve a cargar la app.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                Protección                                  */
+/* -------------------------------------------------------------------------- */
+
+function AuthGate({ children }: { children: ReactNode }) {
+  const { user, loading, configured } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const isPublic = pathname === "/login" || pathname.startsWith("/auth/");
+  const mustLogin = !isPublic && !loading && !user;
+
+  useEffect(() => {
+    if (!mustLogin) return;
+    const next = encodeURIComponent(pathname || "/");
+    router.replace(`/login?next=${next}`);
+  }, [mustLogin, pathname, router]);
+
+  if (isPublic) return <>{children}</>;
+  if (!configured) return <SetupScreen />;
+  if (loading || mustLogin || !user) {
+    return <Splash message={mustLogin ? "Te llevamos al inicio de sesión…" : undefined} />;
+  }
+
+  return <ReceiptsProvider>{children}</ReceiptsProvider>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -165,11 +214,11 @@ export function AppProviders({ children }: { children: ReactNode }) {
         console.error("Service worker:", error);
       });
     }
-  }, [showToast]);
+  }, []);
 
-  // La app depende de la fecha y del almacenamiento local del dispositivo.
-  // Renderizamos la interfaz solo tras la hidratación para evitar que Next
-  // evalúe `new Date()` durante el prerender estático.
+  // La interfaz depende de la fecha y de la sesión del navegador. Renderizamos
+  // solo tras la hidratación para evitar que Next evalúe `new Date()` durante
+  // el prerender estático.
   if (!mounted) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-paper text-ink">
@@ -184,24 +233,26 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   return (
     <ToastContext.Provider value={{ showToast }}>
-      <MonthProvider>
-        {children}
-        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[70] flex flex-col items-center gap-2 px-4">
-          {toasts.map((toast) => (
-            <div
-              key={toast.id}
-              role="status"
-              className={cn(
-                "pointer-events-auto flex w-full max-w-md animate-rise items-start gap-3 rounded-2xl border px-4 py-3 text-sm font-medium shadow-lg shadow-ink/5",
-                TOAST_STYLES[toast.kind],
-              )}
-            >
-              {TOAST_ICONS[toast.kind]}
-              <span className="leading-snug">{toast.message}</span>
-            </div>
-          ))}
-        </div>
-      </MonthProvider>
+      <AuthProvider>
+        <MonthProvider>
+          <AuthGate>{children}</AuthGate>
+          <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[70] flex flex-col items-center gap-2 px-4">
+            {toasts.map((toast) => (
+              <div
+                key={toast.id}
+                role="status"
+                className={cn(
+                  "pointer-events-auto flex w-full max-w-md animate-rise items-start gap-3 rounded-2xl border px-4 py-3 text-sm font-medium shadow-lg shadow-ink/5",
+                  TOAST_STYLES[toast.kind],
+                )}
+              >
+                {TOAST_ICONS[toast.kind]}
+                <span className="leading-snug">{toast.message}</span>
+              </div>
+            ))}
+          </div>
+        </MonthProvider>
+      </AuthProvider>
     </ToastContext.Provider>
   );
 }

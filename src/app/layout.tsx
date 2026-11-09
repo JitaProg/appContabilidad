@@ -14,13 +14,18 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// La app carga la sesión y los tickets en el cliente. Las navegaciones no
+// pueden ser instantáneas hasta que Supabase responde, así que desactivamos
+// la validación de navegación instantánea para este árbol de rutas.
+export const instant = false;
+
 export const metadata: Metadata = {
   title: {
     default: "Tiquet · Controla lo que gastas",
     template: "%s · Tiquet",
   },
   description:
-    "Guarda una foto de cada ticket con su importe final, comercio y fecha, y consulta lo que gastas cada mes. Todo se guarda en tu dispositivo.",
+    "Guarda una foto de cada ticket con su importe final, comercio y fecha, y consulta lo que gastas cada mes. Tus datos se sincronizan de forma privada con tu cuenta de Google.",
   applicationName: "Tiquet",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

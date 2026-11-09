@@ -1,6 +1,10 @@
 import JSZip from "jszip";
 import { todayISO } from "./dates";
-import { createReceipt, db, type Receipt } from "./db";
+import {
+  createReceipt,
+  downloadReceiptFile,
+  type Receipt,
+} from "./supabase/receipts";
 
 export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -17,7 +21,9 @@ function csvCell(value: string) {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
-export function receiptsToCsv(receipts: Receipt[]) {
+export function receiptsToCsv(
+  receipts: Pick<Receipt, "purchaseDate" | "merchant" | "totalCents">[],
+) {
   const header = ["Fecha", "Comercio", "Importe (€)"];
 
   const rows = receipts.map((receipt) => [
@@ -40,7 +46,7 @@ export function exportCsv(receipts: Receipt[]) {
 }
 
 interface BackupReceipt {
-  id: number;
+  id: string;
   createdAt: string;
   purchaseDate: string;
   merchant: string;
@@ -56,27 +62,41 @@ interface BackupPayload {
   receipts: BackupReceipt[];
 }
 
-export async function buildBackup() {
-  const receipts = await db.receipts.orderBy("purchaseDate").toArray();
+export async function buildBackup(receipts: Receipt[]) {
+  const ordered = [...receipts].sort((a, b) => {
+    if (a.purchaseDate === b.purchaseDate) {
+      return a.createdAt.localeCompare(b.createdAt);
+    }
+    return a.purchaseDate.localeCompare(b.purchaseDate);
+  });
 
   const zip = new JSZip();
   const images = zip.folder("images");
   const thumbs = zip.folder("thumbs");
 
-  const backupReceipts: BackupReceipt[] = receipts.map((receipt) => {
-    if (receipt.image) images?.file(`${receipt.id}.jpg`, receipt.image);
-    if (receipt.thumb) thumbs?.file(`${receipt.id}.jpg`, receipt.thumb);
+  const backupReceipts: BackupReceipt[] = [];
 
-    return {
+  for (const receipt of ordered) {
+    const image = receipt.imagePath
+      ? await downloadReceiptFile(receipt.imagePath)
+      : null;
+    const thumb = receipt.thumbPath
+      ? await downloadReceiptFile(receipt.thumbPath)
+      : null;
+
+    if (image) images?.file(`${receipt.id}.jpg`, image);
+    if (thumb) thumbs?.file(`${receipt.id}.jpg`, thumb);
+
+    backupReceipts.push({
       id: receipt.id,
       createdAt: receipt.createdAt,
       purchaseDate: receipt.purchaseDate,
       merchant: receipt.merchant,
       totalCents: receipt.totalCents,
-      imageFile: receipt.image ? `images/${receipt.id}.jpg` : null,
-      thumbFile: receipt.thumb ? `thumbs/${receipt.id}.jpg` : null,
-    };
-  });
+      imageFile: image ? `images/${receipt.id}.jpg` : null,
+      thumbFile: thumb ? `thumbs/${receipt.id}.jpg` : null,
+    });
+  }
 
   const payload: BackupPayload = {
     app: "tiquet",
@@ -91,7 +111,7 @@ export async function buildBackup() {
   return { blob, count: receipts.length };
 }
 
-export async function importBackup(file: File) {
+export async function importBackup(file: File, userId: string) {
   let payload: BackupPayload;
   let zip: JSZip | null = null;
 
@@ -118,7 +138,7 @@ export async function importBackup(file: File) {
         ? receipt.purchaseDate
         : todayISO();
 
-    if (!merchant || !Number.isFinite(totalCents)) continue;
+    if (!merchant || !Number.isFinite(totalCents) || totalCents <= 0) continue;
 
     let image: Blob | null = null;
     let thumb: Blob | null = null;
@@ -134,15 +154,17 @@ export async function importBackup(file: File) {
       }
     }
 
-    await createReceipt({
-      createdAt:
-        typeof receipt.createdAt === "string" ? receipt.createdAt : new Date().toISOString(),
-      purchaseDate,
-      merchant,
-      totalCents,
-      image,
-      thumb,
-    });
+    await createReceipt(
+      userId,
+      { purchaseDate, merchant, totalCents },
+      { image, thumb },
+      {
+        createdAt:
+          typeof receipt.createdAt === "string"
+            ? receipt.createdAt
+            : new Date().toISOString(),
+      },
+    );
     receiptCount += 1;
   }
 

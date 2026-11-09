@@ -6,8 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { ReceiptForm, type ReceiptFormResult } from "@/components/receipt-form";
 import { Button, Dialog } from "@/components/ui";
 import { useToast } from "@/components/providers";
-import { useRecentMerchants } from "@/lib/hooks";
-import { createReceipt, findPossibleDuplicate } from "@/lib/db";
+import { useReceipts, useRecentMerchants } from "@/components/receipts-provider";
 import { formatEUR } from "@/lib/money";
 import { formatFullDate, todayISO } from "@/lib/dates";
 
@@ -19,25 +18,27 @@ interface PendingSave {
 export default function NewReceiptPage() {
   const router = useRouter();
   const { showToast } = useToast();
+  const { addReceipt, findDuplicate } = useReceipts();
   const merchants = useRecentMerchants();
 
   const [pendingSave, setPendingSave] = useState<PendingSave | null>(null);
 
   async function saveReceipt(result: ReceiptFormResult) {
-    const id = await createReceipt({
-      purchaseDate: result.purchaseDate,
-      merchant: result.merchant,
-      totalCents: result.totalCents,
-      image: result.image,
-      thumb: result.thumb,
-    });
+    const id = await addReceipt(
+      {
+        purchaseDate: result.purchaseDate,
+        merchant: result.merchant,
+        totalCents: result.totalCents,
+      },
+      { image: result.image, thumb: result.thumb },
+    );
 
     showToast("Ticket guardado correctamente.");
     router.push(`/receipts/${id}`);
   }
 
-  async function handleSubmit(result: ReceiptFormResult) {
-    const duplicate = await findPossibleDuplicate({
+  function handleSubmit(result: ReceiptFormResult) {
+    const duplicate = findDuplicate({
       purchaseDate: result.purchaseDate,
       totalCents: result.totalCents,
       merchant: result.merchant,
@@ -55,7 +56,7 @@ export default function NewReceiptPage() {
       return;
     }
 
-    await saveReceipt(result);
+    return saveReceipt(result);
   }
 
   async function handleConfirmDuplicate() {

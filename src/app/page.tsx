@@ -5,18 +5,17 @@ import { useMemo } from "react";
 import {
   Camera,
   ChevronRight,
-  Lock,
+  Cloud,
   Plus,
   ReceiptText,
   TrendingDown,
   TrendingUp,
 } from "lucide-react";
-import { useLiveQuery } from "dexie-react-hooks";
-import { addMonths, currentMonth } from "@/lib/dates";
-import { receiptsInMonth } from "@/lib/db";
+import { addMonths, currentMonth, monthOf } from "@/lib/dates";
 import { formatEUR, formatPercentChange } from "@/lib/money";
 import { summarizeMonth } from "@/lib/stats";
 import { useMonth } from "@/components/providers";
+import { useReceipts } from "@/components/receipts-provider";
 import { AppLogo } from "@/components/app-logo";
 import { MonthSwitcher } from "@/components/month-switcher";
 import { ReceiptCard } from "@/components/receipt-card";
@@ -31,24 +30,28 @@ import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
   const { month, ready } = useMonth();
+  const { receipts, loading: receiptsLoading } = useReceipts();
 
-  const receipts = useLiveQuery(() => receiptsInMonth(month), [month]);
-  const previousReceipts = useLiveQuery(
-    () => receiptsInMonth(addMonths(month, -1)),
-    [month],
+  const monthReceipts = useMemo(
+    () => receipts.filter((receipt) => monthOf(receipt.purchaseDate) === month),
+    [receipts, month],
   );
+  const previousReceipts = useMemo(() => {
+    const previousMonth = addMonths(month, -1);
+    return receipts.filter((receipt) => monthOf(receipt.purchaseDate) === previousMonth);
+  }, [receipts, month]);
 
   const summary = useMemo(
-    () => summarizeMonth(month, receipts ?? []),
-    [month, receipts],
+    () => summarizeMonth(month, monthReceipts),
+    [month, monthReceipts],
   );
   const previousTotal = useMemo(
-    () => (previousReceipts ?? []).reduce((sum, receipt) => sum + receipt.totalCents, 0),
+    () => previousReceipts.reduce((sum, receipt) => sum + receipt.totalCents, 0),
     [previousReceipts],
   );
 
-  const loading = !ready || receipts === undefined;
-  const hasReceipts = (receipts?.length ?? 0) > 0;
+  const loading = !ready || receiptsLoading;
+  const hasReceipts = monthReceipts.length > 0;
   const isCurrentMonth = month === currentMonth();
 
   const delta = summary.totalCents - previousTotal;
@@ -69,8 +72,8 @@ export default function DashboardPage() {
           </div>
 
           <span className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-1 text-[0.65rem] font-medium text-muted">
-            <Lock className="size-3" />
-            Solo en tu móvil
+            <Cloud className="size-3" />
+            En tu cuenta
           </span>
         </div>
 
@@ -151,7 +154,7 @@ export default function DashboardPage() {
             <EmptyState
               icon={<Camera className="size-6" />}
               title="Empieza con tu primer ticket"
-              description="Hazle una foto al ticket y apunta el importe final, el comercio y la fecha. La foto se queda en tu dispositivo."
+              description="Hazle una foto al ticket y apunta el importe final, el comercio y la fecha. Se guardará de forma privada en tu cuenta."
               action={
                 <Link href="/receipts/new" className={buttonStyles()}>
                   <Camera className="size-4" />
@@ -160,7 +163,7 @@ export default function DashboardPage() {
               }
             />
 
-            {previousReceipts && previousReceipts.length > 0 ? (
+            {previousReceipts.length > 0 ? (
               <p className="text-center text-xs text-muted">
                 El mes pasado gastaste {formatEUR(previousTotal)} en{" "}
                 {previousReceipts.length} tickets.
@@ -228,7 +231,7 @@ export default function DashboardPage() {
               </SectionTitle>
 
               <div className="space-y-2">
-                {receipts?.slice(0, 4).map((receipt) => (
+                {monthReceipts.slice(0, 4).map((receipt) => (
                   <ReceiptCard key={receipt.id} receipt={receipt} />
                 ))}
               </div>

@@ -6,32 +6,36 @@ import { cn } from "@/lib/utils";
 
 export function BlobImage({
   blob,
+  src,
   alt,
   className,
   style,
   onClick,
 }: {
-  blob: Blob | null | undefined;
+  blob?: Blob | null;
+  src?: string | null;
   alt: string;
   className?: string;
   style?: React.CSSProperties;
   onClick?: () => void;
 }) {
-  const [url, setUrl] = useState<string | null>(null);
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!blob) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- la URL es un recurso externo que hay que liberar
-      setUrl(null);
+      setObjectUrl(null);
       return;
     }
 
-    const objectUrl = URL.createObjectURL(blob);
-    setUrl(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
+    const url = URL.createObjectURL(blob);
+    setObjectUrl(url);
+    return () => URL.revokeObjectURL(url);
   }, [blob]);
 
-  if (!blob) {
+  const url = blob ? objectUrl : (src ?? null);
+
+  if (!blob && !src) {
     return (
       <div
         className={cn(

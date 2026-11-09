@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Tiquet · Controla lo que gastas",
     short_name: "Tiquet",
     description:
-      "Guarda una foto de cada ticket con su importe final, comercio y fecha, y consulta lo que gastas cada mes. Todo se guarda en tu dispositivo.",
+      "Guarda una foto de cada ticket con su importe final, comercio y fecha, y consulta lo que gastas cada mes. Tus datos se sincronizan de forma privada con tu cuenta de Google.",
     start_url: "/",
     scope: "/",
     display: "standalone",

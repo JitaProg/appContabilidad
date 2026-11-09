@@ -1,58 +1,52 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ChevronRight,
-  Database,
+  Cloud,
   Download,
   FileSpreadsheet,
-  HardDrive,
   Loader2,
-  Lock,
+  LogOut,
   ShieldCheck,
   Trash2,
   Upload,
+  UserRound,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { InstallCard } from "@/components/install-card";
+import { BlobImage } from "@/components/blob-image";
 import { Button, Card, Dialog, SectionTitle, Skeleton } from "@/components/ui";
 import { useToast } from "@/components/providers";
-import { clearAllData, db } from "@/lib/db";
+import { useAuth } from "@/components/auth-provider";
+import { useReceipts } from "@/components/receipts-provider";
 import { buildBackup, downloadBlob, exportCsv, importBackup } from "@/lib/backup";
 import { todayISO } from "@/lib/dates";
 import { formatInteger } from "@/lib/money";
 
-function formatBytes(bytes: number) {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 MB";
-  const mb = bytes / (1024 * 1024);
-  if (mb < 1) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${mb.toFixed(1)} MB`;
-}
-
 export default function SettingsPage() {
+  const router = useRouter();
+  const { user, signOut } = useAuth();
+  const { receipts, loading, refresh, clearReceipts } = useReceipts();
   const { showToast } = useToast();
   const importInput = useRef<HTMLInputElement>(null);
 
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
-  const [usageBytes, setUsageBytes] = useState<number | null>(null);
+  const [clearing, setClearing] = useState(false);
 
-  const receiptCount = useLiveQuery(() => db.receipts.count(), []);
+  const displayName =
+    (user?.user_metadata?.full_name as string | undefined) ??
+    (user?.user_metadata?.name as string | undefined) ??
+    user?.email ??
+    "Tu cuenta";
+  const avatarUrl = (user?.user_metadata?.avatar_url as string | undefined) ?? null;
+  const email = user?.email ?? "";
 
-  useEffect(() => {
-    if (typeof navigator === "undefined" || !navigator.storage?.estimate) return;
-
-    navigator.storage
-      .estimate()
-      .then((estimate) => setUsageBytes(estimate.usage ?? 0))
-      .catch(() => setUsageBytes(null));
-  }, [receiptCount]);
-
-  async function handleExportCsv() {
-    const receipts = await db.receipts.toArray();
-
+  function handleExportCsv() {
     if (receipts.length === 0) {
       showToast("Todavía no hay tickets que exportar.", "info");
       return;
@@ -65,7 +59,7 @@ export default function SettingsPage() {
   async function handleBackup() {
     setExporting(true);
     try {
-      const { blob, count } = await buildBackup();
+      const { blob, count } = await buildBackup(receipts);
       downloadBlob(blob, `tiquet-backup-${todayISO()}.zip`);
       showToast(`Copia de seguridad creada con ${count} tickets.`);
     } catch (error) {
@@ -77,9 +71,12 @@ export default function SettingsPage() {
   }
 
   async function handleImport(file: File) {
+    if (!user) return;
+
     setImporting(true);
     try {
-      const result = await importBackup(file);
+      const result = await importBackup(file, user.id);
+      await refresh();
       showToast(
         `Copia restaurada: ${result.receipts} ${
           result.receipts === 1 ? "ticket" : "tickets"
@@ -97,38 +94,99 @@ export default function SettingsPage() {
   }
 
   async function handleClear() {
-    await clearAllData();
-    setConfirmClear(false);
-    showToast("Se han eliminado todos los tickets.", "info");
+    setClearing(true);
+    try {
+      await clearReceipts();
+      setConfirmClear(false);
+      showToast("Se han eliminado todos los tickets.", "info");
+    } catch (error) {
+      console.error(error);
+      showToast("No se han podido eliminar los tickets.", "error");
+    } finally {
+      setClearing(false);
+    }
+  }
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await signOut();
+      router.replace("/login");
+    } catch (error) {
+      console.error(error);
+      showToast("No se ha podido cerrar la sesión.", "error");
+      setSigningOut(false);
+    }
   }
 
   return (
     <div className="animate-rise">
-      <PageHeader title="Ajustes" subtitle="Datos, copias y privacidad" />
+      <PageHeader title="Ajustes" subtitle="Cuenta, copias y privacidad" />
 
       <div className="space-y-7 px-5 pt-5">
+        <section>
+          <SectionTitle>Cuenta</SectionTitle>
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              {avatarUrl ? (
+                <BlobImage
+                  src={avatarUrl}
+                  alt={`Foto de ${displayName}`}
+                  className="size-11 shrink-0 rounded-2xl"
+                />
+              ) : (
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-brand">
+                  <UserRound className="size-5" />
+                </span>
+              )}
+
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-ink">{displayName}</p>
+                <p className="mt-0.5 truncate text-xs text-muted">{email}</p>
+              </div>
+
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-paper-deep px-2 py-1 text-[0.65rem] font-medium text-muted">
+                <Cloud className="size-3" />
+                Google
+              </span>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4 w-full"
+              onClick={handleSignOut}
+              disabled={signingOut}
+            >
+              {signingOut ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <LogOut className="size-4" />
+              )}
+              {signingOut ? "Cerrando sesión…" : "Cerrar sesión"}
+            </Button>
+          </Card>
+        </section>
+
         <Card className="p-5">
           <div className="flex items-center gap-3">
             <span className="flex size-11 items-center justify-center rounded-2xl bg-brand-soft text-brand">
-              <Database className="size-5" />
+              <Cloud className="size-5" />
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-ink">
-                {receiptCount === undefined ? (
+                {loading ? (
                   <Skeleton className="h-4 w-24" />
                 ) : (
-                  `${formatInteger(receiptCount)} ${
-                    receiptCount === 1 ? "ticket guardado" : "tickets guardados"
+                  `${formatInteger(receipts.length)} ${
+                    receipts.length === 1 ? "ticket guardado" : "tickets guardados"
                   }`
                 )}
               </p>
               <p className="mt-0.5 text-xs text-muted">
-                {usageBytes === null
-                  ? "Fotos y datos en este dispositivo"
-                  : `${formatBytes(usageBytes)} en este dispositivo`}
+                Sincronizados en tu cuenta de Supabase
               </p>
             </div>
-            <HardDrive className="size-4 text-muted" />
           </div>
         </Card>
 
@@ -216,8 +274,8 @@ export default function SettingsPage() {
           />
 
           <p className="mt-2 px-1 text-[0.7rem] leading-relaxed text-muted">
-            Guarda la copia en un sitio seguro. Si cambias de móvil o borras los
-            datos del navegador, podrás recuperar todo desde el ZIP.
+            La copia incluye todos tus tickets y fotos. Guárdala en un sitio seguro
+            por si algún día quieres recuperarlos en otra cuenta.
           </p>
         </section>
 
@@ -230,18 +288,17 @@ export default function SettingsPage() {
           <SectionTitle>Privacidad</SectionTitle>
           <Card className="space-y-3 p-4">
             <div className="flex gap-3">
-              <Lock className="mt-0.5 size-4 shrink-0 text-brand" />
+              <Cloud className="mt-0.5 size-4 shrink-0 text-brand" />
               <p className="text-xs leading-relaxed text-muted">
-                Las fotos de tus tickets se guardan solo en este dispositivo,
-                dentro del almacenamiento del navegador. No hay cuentas, servidores
-                ni analítica.
+                Tus tickets se guardan en Supabase, en un espacio privado vinculado a
+                tu cuenta de Google. Nadie más puede verlos.
               </p>
             </div>
             <div className="flex gap-3">
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-brand" />
               <p className="text-xs leading-relaxed text-muted">
-                Las imágenes no se envían a ningún servicio externo ni se procesan
-                con reconocimiento de texto.
+                Las fotos se guardan en un bucket privado y solo se muestran mediante
+                enlaces temporales firmados. No se envían a ningún otro servicio.
               </p>
             </div>
           </Card>
@@ -257,7 +314,7 @@ export default function SettingsPage() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-ink">Borrar todos los datos</p>
                 <p className="mt-0.5 text-xs leading-relaxed text-muted">
-                  Elimina los tickets y sus fotos de este dispositivo. Exporta una
+                  Elimina los tickets y sus fotos de tu cuenta en la nube. Exporta una
                   copia antes si quieres conservarlos.
                 </p>
                 <Button
@@ -274,7 +331,7 @@ export default function SettingsPage() {
         </section>
 
         <footer className="pb-4 text-center text-[0.7rem] leading-relaxed text-muted">
-          <p className="font-semibold text-ink-soft">Tiquet · v2.0</p>
+          <p className="font-semibold text-ink-soft">Tiquet · v2.1</p>
           <p className="mt-0.5">Hecho para llevar tus gastos sin complicaciones.</p>
         </footer>
       </div>
@@ -283,14 +340,20 @@ export default function SettingsPage() {
         open={confirmClear}
         onClose={() => setConfirmClear(false)}
         title="¿Borrar todos los datos?"
-        description="Se eliminarán todos los tickets y fotos guardados en este dispositivo. Esta acción no se puede deshacer."
+        description="Se eliminarán todos los tickets y fotos guardados en tu cuenta. Esta acción no se puede deshacer."
         footer={
           <>
-            <Button variant="outline" fullWidth onClick={() => setConfirmClear(false)}>
+            <Button
+              variant="outline"
+              fullWidth
+              onClick={() => setConfirmClear(false)}
+              disabled={clearing}
+            >
               Cancelar
             </Button>
-            <Button variant="danger" fullWidth onClick={handleClear}>
-              Sí, borrar todo
+            <Button variant="danger" fullWidth onClick={handleClear} disabled={clearing}>
+              {clearing ? <Loader2 className="size-4 animate-spin" /> : null}
+              {clearing ? "Borrando…" : "Sí, borrar todo"}
             </Button>
           </>
         }

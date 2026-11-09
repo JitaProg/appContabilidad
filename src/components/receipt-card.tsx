@@ -2,19 +2,19 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import type { Receipt } from "@/lib/db";
+import type { ReceiptWithUrls } from "@/lib/supabase/receipts";
 import { formatEUR } from "@/lib/money";
 import { relativeDayLabel } from "@/lib/dates";
 import { BlobImage } from "@/components/blob-image";
 
-export function ReceiptCard({ receipt }: { receipt: Receipt }) {
+export function ReceiptCard({ receipt }: { receipt: ReceiptWithUrls }) {
   return (
     <Link
       href={`/receipts/${receipt.id}`}
       className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 transition-colors active:bg-paper-deep/50"
     >
       <BlobImage
-        blob={receipt.thumb}
+        src={receipt.thumbUrl ?? receipt.imageUrl}
         alt={`Ticket de ${receipt.merchant}`}
         className="size-12 shrink-0 rounded-xl border border-line"
       />

@@ -1,14 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
 import { ArrowDownRight, ArrowUpRight, ChartPie, Store, TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { MonthSwitcher } from "@/components/month-switcher";
 import { MonthlyBars } from "@/components/charts";
 import { Card, EmptyState, SectionTitle, Skeleton } from "@/components/ui";
 import { useMonth, useMounted } from "@/components/providers";
-import { receiptsBetween } from "@/lib/db";
+import { useReceipts } from "@/components/receipts-provider";
 import {
   addMonths,
   daysInMonth,
@@ -23,25 +22,32 @@ import { cn } from "@/lib/utils";
 export default function StatsPage() {
   const { month, ready } = useMonth();
   const mounted = useMounted();
+  const { receipts: allReceipts, loading: receiptsLoading } = useReceipts();
 
   const startMonth = addMonths(month, -11);
   const start = monthDateRange(startMonth).start;
   const end = `${month}-${String(daysInMonth(month)).padStart(2, "0")}`;
 
-  const receipts = useLiveQuery(() => receiptsBetween(start, end), [start, end]);
+  const receipts = useMemo(
+    () =>
+      allReceipts.filter(
+        (receipt) => receipt.purchaseDate >= start && receipt.purchaseDate <= end,
+      ),
+    [allReceipts, start, end],
+  );
 
   const summary = useMemo(
-    () => summarizeMonth(month, receipts ?? []),
+    () => summarizeMonth(month, receipts),
     [month, receipts],
   );
   const previous = useMemo(
-    () => summarizeMonth(addMonths(month, -1), receipts ?? []),
+    () => summarizeMonth(addMonths(month, -1), receipts),
     [month, receipts],
   );
 
   const series = useMemo(
     () =>
-      monthlySeries(receipts ?? [], 12, month).map((point) => ({
+      monthlySeries(receipts, 12, month).map((point) => ({
         month: point.month,
         label: monthShortLabel(point.month),
         totalCents: point.totalCents,
@@ -49,8 +55,8 @@ export default function StatsPage() {
     [month, receipts],
   );
 
-  const hasAnyData = (receipts?.length ?? 0) > 0;
-  const loading = !ready || receipts === undefined;
+  const hasAnyData = receipts.length > 0;
+  const loading = !ready || receiptsLoading;
   const delta = summary.totalCents - previous.totalCents;
 
   return (

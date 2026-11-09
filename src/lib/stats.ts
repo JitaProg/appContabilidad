@@ -1,4 +1,4 @@
-import type { Receipt } from "./db";
+import type { Receipt } from "./supabase/receipts";
 import { daysElapsedInMonth, lastMonths, monthOf } from "./dates";
 
 export interface MerchantTotal {

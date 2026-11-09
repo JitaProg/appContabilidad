@@ -24,6 +24,8 @@ const NAV_ITEMS: NavItem[] = [
 export function BottomNav() {
   const pathname = usePathname();
 
+  if (pathname === "/login" || pathname.startsWith("/auth/")) return null;
+
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40">
       <div className="mx-auto w-full max-w-xl px-4 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
@@ -36,7 +38,7 @@ export function BottomNav() {
               item.href === "/"
                 ? pathname === "/"
                 : item.href === "/receipts"
-                  ? pathname === "/receipts" || /^\/receipts\/\d+/.test(pathname)
+                  ? pathname === "/receipts" || /^\/receipts\/[^/]+/.test(pathname)
                   : pathname === item.href;
 
             if (item.primary) {

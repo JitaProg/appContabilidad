@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Pencil, ReceiptText, Trash2 } from "lucide-react";
@@ -16,8 +16,7 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { useToast } from "@/components/providers";
-import { useReceipt } from "@/lib/hooks";
-import { deleteReceipt, updateReceipt } from "@/lib/db";
+import { useReceipts } from "@/components/receipts-provider";
 import { formatEUR, centsToInput } from "@/lib/money";
 import { formatFullDate } from "@/lib/dates";
 
@@ -25,9 +24,13 @@ export default function ReceiptDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { showToast } = useToast();
+  const { receipts, loading, editReceipt, removeReceipt } = useReceipts();
 
-  const receiptId = Number(params?.id);
-  const receipt = useReceipt(receiptId);
+  const receiptId = params?.id;
+  const receipt = useMemo(
+    () => receipts.find((item) => item.id === receiptId) ?? null,
+    [receipts, receiptId],
+  );
 
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -36,27 +39,41 @@ export default function ReceiptDetailPage() {
   async function handleUpdate(result: ReceiptFormResult) {
     if (!receipt) return;
 
-    await updateReceipt(receipt.id, {
-      purchaseDate: result.purchaseDate,
-      merchant: result.merchant,
-      totalCents: result.totalCents,
-      image: result.image,
-      thumb: result.thumb,
-    });
+    try {
+      await editReceipt(
+        receipt,
+        {
+          purchaseDate: result.purchaseDate,
+          merchant: result.merchant,
+          totalCents: result.totalCents,
+        },
+        { image: result.image, thumb: result.thumb },
+      );
 
-    setEditing(false);
-    showToast("Cambios guardados.");
+      setEditing(false);
+      showToast("Cambios guardados.");
+    } catch (error) {
+      console.error(error);
+      showToast("No se han podido guardar los cambios.", "error");
+      throw error;
+    }
   }
 
   async function handleDelete() {
     if (!receipt) return;
-    await deleteReceipt(receipt.id);
-    setConfirmDelete(false);
-    showToast("Ticket eliminado.", "info");
-    router.push("/receipts");
+
+    try {
+      await removeReceipt(receipt);
+      setConfirmDelete(false);
+      showToast("Ticket eliminado.", "info");
+      router.push("/receipts");
+    } catch (error) {
+      console.error(error);
+      showToast("No se ha podido eliminar el ticket.", "error");
+    }
   }
 
-  if (receipt === undefined) {
+  if (loading) {
     return (
       <div>
         <PageHeader title="Ticket" backHref="/receipts" />
@@ -69,7 +86,7 @@ export default function ReceiptDetailPage() {
     );
   }
 
-  if (receipt === null) {
+  if (!receipt) {
     return (
       <div>
         <PageHeader title="Ticket no encontrado" backHref="/receipts" />
@@ -105,8 +122,7 @@ export default function ReceiptDetailPage() {
               merchant: receipt.merchant,
               total: centsToInput(receipt.totalCents),
             }}
-            initialImage={receipt.image}
-            initialThumb={receipt.thumb}
+            initialImageUrl={receipt.imageUrl}
             submitLabel="Guardar cambios"
             onSubmit={handleUpdate}
             onCancel={() => setEditing(false)}
@@ -164,10 +180,10 @@ export default function ReceiptDetailPage() {
           </dl>
         </Card>
 
-        {receipt.image ? (
+        {receipt.imageUrl ? (
           <Card className="overflow-hidden">
             <BlobImage
-              blob={receipt.image}
+              src={receipt.imageUrl}
               alt={`Foto del ticket de ${receipt.merchant}`}
               className="max-h-80 w-full object-cover"
               onClick={() => setViewImage(true)}
@@ -188,7 +204,7 @@ export default function ReceiptDetailPage() {
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
         title="¿Eliminar este ticket?"
-        description="Se borrarán la foto y los datos asociados. Esta acción no se puede deshacer."
+        description="Se borrarán la foto y los datos asociados de tu cuenta. Esta acción no se puede deshacer."
         footer={
           <>
             <Button
@@ -210,9 +226,9 @@ export default function ReceiptDetailPage() {
         onClose={() => setViewImage(false)}
         title={receipt.merchant}
       >
-        {receipt.image ? (
+        {receipt.imageUrl ? (
           <BlobImage
-            blob={receipt.image}
+            src={receipt.imageUrl}
             alt={`Ticket de ${receipt.merchant}`}
             className="max-h-[70vh] w-full rounded-2xl object-contain"
           />

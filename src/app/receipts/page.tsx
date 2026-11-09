@@ -2,43 +2,40 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useLiveQuery } from "dexie-react-hooks";
 import { Plus, ReceiptText, Search, X } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { MonthSwitcher } from "@/components/month-switcher";
 import { ReceiptCard } from "@/components/receipt-card";
 import { EmptyState, Input, Skeleton } from "@/components/ui";
 import { useMonth } from "@/components/providers";
-import { allReceipts, receiptsInMonth, type Receipt } from "@/lib/db";
+import { useReceipts } from "@/components/receipts-provider";
+import type { ReceiptWithUrls } from "@/lib/supabase/receipts";
 import { formatEUR } from "@/lib/money";
-import { relativeDayLabel, weekdayShort } from "@/lib/dates";
+import { monthOf, relativeDayLabel, weekdayShort } from "@/lib/dates";
 import { cn, normalizeForMatch } from "@/lib/utils";
 
 export default function ReceiptsPage() {
   const { month, ready } = useMonth();
+  const { receipts, loading } = useReceipts();
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
 
-  const receipts = useLiveQuery(async () => {
-    if (showAll) {
-      const all = await allReceipts();
-      return all.reverse();
-    }
-    return receiptsInMonth(month);
-  }, [month, showAll]);
+  const periodReceipts = useMemo(() => {
+    if (showAll) return receipts;
+    return receipts.filter((receipt) => monthOf(receipt.purchaseDate) === month);
+  }, [receipts, month, showAll]);
 
   const filtered = useMemo(() => {
-    const list = receipts ?? [];
     const needle = normalizeForMatch(query.trim());
-    if (!needle) return list;
+    if (!needle) return periodReceipts;
 
-    return list.filter((receipt) =>
+    return periodReceipts.filter((receipt) =>
       normalizeForMatch(receipt.merchant).includes(needle),
     );
-  }, [receipts, query]);
+  }, [periodReceipts, query]);
 
   const groups = useMemo(() => {
-    const map = new Map<string, Receipt[]>();
+    const map = new Map<string, ReceiptWithUrls[]>();
     for (const receipt of filtered) {
       const list = map.get(receipt.purchaseDate) ?? [];
       list.push(receipt);
@@ -52,14 +49,14 @@ export default function ReceiptsPage() {
     [filtered],
   );
 
-  const loading = !ready || receipts === undefined;
+  const isLoading = !ready || loading;
 
   return (
     <div className="animate-rise">
       <PageHeader
         title="Tickets"
         subtitle={
-          loading
+          isLoading
             ? "Cargando…"
             : `${filtered.length} ${filtered.length === 1 ? "ticket" : "tickets"} · ${formatEUR(totalCents)}`
         }
@@ -131,7 +128,7 @@ export default function ReceiptsPage() {
       </div>
 
       <div className="px-5 pt-2">
-        {loading ? (
+        {isLoading ? (
           <div className="space-y-3 pt-4">
             {[0, 1, 2, 3, 4].map((index) => (
               <Skeleton key={index} className="h-16 w-full rounded-2xl" />

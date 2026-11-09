@@ -4,11 +4,12 @@
 
 **Tiquet** es una web app instalable (PWA) para llevar el gasto de tus tickets de forma
 sencilla: haces una foto, apuntas el importe final, el comercio y la fecha, y consultas
-cuánto has gastado cada mes. Todo se guarda localmente en el navegador: sin cuentas, sin
-servidores y sin enviar fotos a terceros.
+cuánto has gastado cada mes. Los tickets y las fotos se guardan en **Supabase**, aislados
+por cuenta y protegidos con RLS. El acceso es únicamente con **Google**.
 
 ## Funciones
 
+- **Inicio de sesión con Google**. Cada cuenta ve solo sus propios tickets.
 - **Foto del ticket** con la cámara o desde la galería.
 - **Datos mínimos**: importe final, comercio y fecha. Si no indicas fecha, se usa la del
   día en que registras el ticket.
@@ -19,30 +20,100 @@ servidores y sin enviar fotos a terceros.
 - **Búsqueda por comercio** y filtro por mes.
 - **Copia de seguridad** en ZIP (datos + fotos), exportación a CSV para Excel y
   restauración desde ZIP o JSON.
-- **PWA instalable** y funcionamiento sin conexión después de la primera visita.
-- Interfaz en español, importes en euros y diseño mobile-first.
+- **PWA instalable**, interfaz en español e importes en euros.
 
 ## Cómo funciona
 
-1. Eliges una foto del ticket con la cámara o la galería.
-2. La imagen se comprime y se orienta en el propio dispositivo; también se genera una
+1. Entras con tu cuenta de Google.
+2. Eliges una foto del ticket con la cámara o la galería.
+3. La imagen se comprime y se orienta en el propio dispositivo; también se genera una
    miniatura para los listados.
-3. Introduces el importe final y el comercio. La fecha es opcional: si la dejas vacía se
-   guarda la fecha de hoy.
-4. El ticket aparece en el listado y en las estadísticas del mes correspondiente.
+4. La foto se sube a un bucket privado de Supabase y el ticket se guarda en la tabla
+   `public.receipts`, asociado a tu `auth.uid()`.
+5. El ticket aparece en el listado y en las estadísticas del mes correspondiente.
 
-No hay reconocimiento de texto ni artículos: el ticket es la foto más los tres datos que
-tú escribes. Así el registro es rápido y los totales siempre coinciden con lo que pagaste.
+Las fotos se muestran mediante **URLs firmadas temporales**. No hay reconocimiento de texto
+ni artículos: el ticket es la foto más los tres datos que tú escribes.
 
 ## Tecnología
 
 - [Next.js 16](https://nextjs.org/) (App Router, Turbopack)
 - React 19 + TypeScript
 - Tailwind CSS v4
-- [Dexie 4](https://dexie.org/) sobre IndexedDB para los datos locales
+- [Supabase](https://supabase.com/) (`@supabase/supabase-js` + `@supabase/ssr`)
 - [Recharts](https://recharts.org/) para las gráficas
 - [JSZip](https://stuk.github.io/jszip/) para las copias ZIP
-- Service worker propio para el modo offline
+- Service worker propio para instalar la PWA
+
+## Configuración de Supabase
+
+El proyecto ya está creado en la región `eu-west-1`:
+
+- **Project ref:** `tekpznxyrykcqosppwet`
+- **URL:** `https://tekpznxyrykcqosppwet.supabase.co`
+- **Dashboard:** <https://supabase.com/dashboard/project/tekpznxyrykcqosppwet>
+
+La migración [`supabase/migrations/20261109194000_cloud_receipts.sql`](./supabase/migrations/20261109194000_cloud_receipts.sql)
+crea:
+
+- `public.receipts` con `user_id`, fecha, comercio, importe y rutas de las fotos.
+- Índice `(user_id, purchase_date desc, created_at desc)`.
+- RLS activo: `select`, `insert`, `update` y `delete` solo para el dueño.
+- Bucket privado `receipts` con políticas de Storage por carpeta `${user_id}/`.
+
+### Variables de entorno
+
+Copia `.env.example` a `.env.local` y rellena los valores de
+**Project Settings → API**:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://tekpznxyrykcqosppwet.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+```
+
+La clave publicable es segura para el navegador: los permisos reales los aplica RLS.
+
+## Configurar el login con Google
+
+### 1. Crear las credenciales en Google Cloud
+
+1. Abre <https://console.cloud.google.com/apis/credentials> y crea (o elige) un proyecto.
+2. Configura la pantalla de consentimiento en **Google Auth Platform → Branding**:
+   nombre de la app `Tiquet`, correo de asistencia y correo del desarrollador. Tipo
+   **External**. No necesitas scopes sensibles: bastan `openid`, `email` y `profile`.
+3. Ve a **Credentials → Create credentials → OAuth client ID → Web application**.
+4. En **Authorized JavaScript origins** añade:
+   - `http://localhost:3000`
+   - `https://tiquet-two.vercel.app`
+5. En **Authorized redirect URIs** añade exactamente:
+   - `https://tekpznxyrykcqosppwet.supabase.co/auth/v1/callback`
+6. Guarda el **Client ID** y el **Client Secret**.
+
+### 2. Activar Google en Supabase
+
+1. Abre <https://supabase.com/dashboard/project/tekpznxyrykcqosppwet/auth/providers>.
+2. En **Sign In / Providers**, activa **Google**.
+3. Pega el Client ID y el Client Secret de Google Cloud y guarda.
+
+### 3. Configurar las URLs de autenticación
+
+En <https://supabase.com/dashboard/project/tekpznxyrykcqosppwet/auth/url-configuration>:
+
+- **Site URL:** `https://tiquet-two.vercel.app`
+- **Redirect URLs:**
+  - `http://localhost:3000/auth/callback`
+  - `https://tiquet-two.vercel.app/auth/callback`
+
+Si usas dominios de preview de Vercel, añade también el patrón correspondiente
+(`https://*.vercel.app/**`).
+
+El flujo completo es:
+
+```
+Google → https://<project-ref>.supabase.co/auth/v1/callback
+       → https://tu-app/auth/callback (intercambia el código por cookies de sesión)
+       → /
+```
 
 ## Desarrollo local
 
@@ -53,7 +124,7 @@ npm install
 npm run dev
 ```
 
-Abre <http://localhost:3000>.
+Abre <http://localhost:3000>. Sin sesión te redirige a `/login`.
 
 ### Scripts
 
@@ -66,63 +137,69 @@ npm run typecheck   # TypeScript
 npm test            # tests de importes y fechas (Vitest)
 ```
 
-Los tests no necesitan navegador: cubren el formato de fechas y la conversión de importes
-a céntimos.
-
 ## Despliegue en Vercel
-
-La app no necesita variables de entorno ni base de datos remota. Es estática y toda la
-lógica corre en el cliente.
 
 1. Sube el repositorio a GitHub.
 2. En [Vercel](https://vercel.com/new), importa el repositorio.
-3. Vercel detecta Next.js automáticamente. Deja los valores por defecto y pulsa **Deploy**.
+3. Añade las variables `NEXT_PUBLIC_SUPABASE_URL` y
+   `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` en **Settings → Environment Variables** para
+   Production, Preview y Development.
+4. Despliega.
 
-También puedes desplegar desde la CLI:
+Desde la CLI:
 
 ```bash
 npx vercel
+npx vercel env add NEXT_PUBLIC_SUPABASE_URL
+npx vercel env add NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+npx vercel --prod
 ```
 
-> El service worker solo se registra en producción (`NODE_ENV=production`), así que para
-> probar la instalación PWA y el modo offline usa `npm run build && npm run start` o la
-> URL de Vercel.
+> El service worker solo se registra en producción (`NODE_ENV=production`). Para probar la
+> instalación PWA usa `npm run build && npm run start` o la URL de Vercel.
 
 ## Privacidad y almacenamiento
 
-- Los tickets, las fotos y las miniaturas viven en **IndexedDB**, en el almacenamiento del
-  navegador de tu dispositivo.
-- No hay backend, login, analítica ni cookies de seguimiento.
-- Las imágenes no se envían a ningún servicio externo ni se procesan con OCR.
-- Si borras los datos del navegador o desinstalas la PWA, se pierden los tickets. Descarga
-  una copia ZIP desde **Ajustes** antes de cambiar de dispositivo.
+- Los tickets viven en `public.receipts` de Supabase, siempre asociados a tu `user_id`.
+- Las fotos viven en el bucket **privado** `receipts`, en la carpeta de tu usuario.
+- La sesión se guarda en **cookies** gestionadas por `@supabase/ssr`, no en
+  `localStorage`. La información de los tickets nunca se guarda en el navegador.
+- Las fotos se muestran con URLs firmadas que caducan a las 24 horas.
+- No hay analítica ni cookies de seguimiento.
+- Puedes descargar una copia ZIP o borrar todos tus datos desde **Ajustes**.
 
 ## Estructura
 
 ```
 src/
-  app/                 Rutas (dashboard, tickets, estadísticas, ajustes)
-  components/          UI, formulario, gráficas, navegación y providers
+  app/
+    auth/callback/     Intercambio del código OAuth por sesión
+    login/             Pantalla de acceso con Google
+    receipts/          Listado, alta y detalle de tickets
+    stats/             Estadísticas mensuales
+    settings/          Cuenta, copias y borrado
+  components/          UI, formularios, providers y navegación
   lib/
-    db.ts              Esquema Dexie y operaciones CRUD
+    supabase/          Cliente, servidor, configuración y CRUD
     image.ts           Compresión y miniaturas en canvas
     backup.ts          Exportación CSV/ZIP e importación
     stats.ts           Agregados mensuales
     dates.ts           Utilidades de fechas y meses
+  proxy.ts             Refresco de sesión y protección de rutas
+supabase/
+  migrations/          Esquema SQL, RLS y bucket de Storage
 public/
   icons/               Iconos PWA
-  sw.js                Service worker (app shell + offline)
+  sw.js                Service worker (solo estáticos)
 ```
 
 ## Limitaciones conocidas
 
+- La app necesita conexión para cargar y guardar tickets en Supabase.
 - Las fotos HEIC pueden no abrirse en navegadores que no sean Safari.
-- Los navegadores pueden borrar el almacenamiento local si el dispositivo se queda sin
-  espacio. Las copias de seguridad son la red de seguridad.
-- El detalle de un ticket necesita haber visitado antes esa ruta (o la lista) para estar
-  disponible sin conexión; el resto de la app se precarga al instalar el service worker.
-- Al actualizar desde una versión anterior se conservan los tickets, pero se descartan los
-  artículos, categorías y datos de OCR antiguos.
+- Las URLs firmadas de las fotos caducan a las 24 h; al recargar se generan de nuevo.
+- Al restaurar una copia se añaden tickets a la cuenta actual; no se conservan los IDs
+  originales.
 
 ## Licencia
 

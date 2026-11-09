@@ -3,9 +3,9 @@
 import { useRef, useState } from "react";
 import {
   Camera,
+  Cloud,
   Image as ImageIcon,
   Loader2,
-  Lock,
   RotateCcw,
   RotateCw,
 } from "lucide-react";
@@ -32,8 +32,7 @@ export interface ReceiptFormResult {
 
 interface ReceiptFormProps {
   initial?: Partial<ReceiptFormValues>;
-  initialImage?: Blob | null;
-  initialThumb?: Blob | null;
+  initialImageUrl?: string | null;
   submitLabel: string;
   busy?: boolean;
   merchantSuggestions?: string[];
@@ -44,8 +43,7 @@ interface ReceiptFormProps {
 
 export function ReceiptForm({
   initial,
-  initialImage = null,
-  initialThumb = null,
+  initialImageUrl = null,
   submitLabel,
   busy = false,
   merchantSuggestions = [],
@@ -77,8 +75,7 @@ export function ReceiptForm({
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const totalCents = parseAmountToCents(values.total);
-  const preview = processed?.full ?? initialImage;
-  const hasPhoto = preview !== null;
+  const hasPhoto = Boolean(processed || initialImageUrl);
 
   function update<K extends keyof ReceiptFormValues>(
     key: K,
@@ -155,7 +152,7 @@ export function ReceiptForm({
       setPhotoError("La foto aún no está lista. Prueba a elegir otra imagen.");
       return;
     }
-    if (!file && !initialImage) {
+    if (!file && !initialImageUrl) {
       nextErrors.photo = "Añade una foto del ticket.";
     }
 
@@ -168,8 +165,8 @@ export function ReceiptForm({
         purchaseDate: values.purchaseDate || todayISO(),
         merchant: values.merchant.trim(),
         totalCents: totalCents as number,
-        image: processed?.full ?? initialImage ?? null,
-        thumb: processed?.thumb ?? initialThumb ?? null,
+        image: processed?.full ?? null,
+        thumb: processed?.thumb ?? null,
       });
     } catch (error) {
       console.error(error);
@@ -228,16 +225,17 @@ export function ReceiptForm({
               : "border-line",
         )}
       >
-        {processingPhoto && !preview ? (
+        {processingPhoto && !hasPhoto ? (
           <div className="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center">
             <Loader2 className="size-8 animate-spin text-brand" />
             <p className="text-sm font-medium text-ink">Preparando la foto…</p>
           </div>
-        ) : preview ? (
+        ) : hasPhoto ? (
           <>
             <div className="flex max-h-[48vh] items-center justify-center overflow-hidden bg-ink/5 p-3">
               <BlobImage
-                blob={preview}
+                blob={processed?.full ?? null}
+                src={initialImageUrl}
                 alt="Foto del ticket"
                 className="max-h-[44vh] w-auto max-w-full rounded-2xl object-contain"
               />
@@ -397,9 +395,8 @@ export function ReceiptForm({
       </div>
 
       <p className="flex items-start justify-center gap-1.5 px-4 text-center text-[0.7rem] leading-relaxed text-muted">
-        <Lock className="mt-0.5 size-3.5 shrink-0" />
-        La foto y los datos se guardan solo en este dispositivo. No se envían a
-        ningún servidor.
+        <Cloud className="mt-0.5 size-3.5 shrink-0" />
+        La foto y los datos se guardan en tu cuenta. Solo tú puedes verlos.
       </p>
 
       {submitError ? (
