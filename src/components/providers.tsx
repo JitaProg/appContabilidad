@@ -17,6 +17,7 @@ import { addMonths, currentMonth, isFutureMonth, isMonth } from "@/lib/dates";
 import { AppLogo } from "@/components/app-logo";
 import { AuthProvider, useAuth } from "@/components/auth-provider";
 import { ReceiptsProvider } from "@/components/receipts-provider";
+import { isPublicPath } from "@/lib/public-routes";
 import { cn } from "@/lib/utils";
 
 /* -------------------------------------------------------------------------- */
@@ -140,7 +141,7 @@ function AuthGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const isPublic = pathname === "/login" || pathname.startsWith("/auth/");
+  const isPublic = isPublicPath(pathname);
   const mustLogin = !isPublic && !loading && !user;
 
   useEffect(() => {

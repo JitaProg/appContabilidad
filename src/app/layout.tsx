@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AppProviders } from "@/components/providers";
-import { BottomNav } from "@/components/bottom-nav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,6 +19,7 @@ const geistMono = Geist_Mono({
 export const instant = false;
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://tiquet-two.vercel.app"),
   title: {
     default: "Tiquet · Controla lo que gastas",
     template: "%s · Tiquet",
@@ -49,20 +49,13 @@ export const viewport: Viewport = {
   themeColor: "#f5f4ef",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-paper text-ink">
-        <AppProviders>
-          <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
-            <main className="flex-1 pb-32">{children}</main>
-            <BottomNav />
-          </div>
-        </AppProviders>
-      </body>
+      <body className="min-h-full bg-paper text-ink">{children}</body>
     </html>
   );
 }

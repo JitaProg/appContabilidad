@@ -109,9 +109,12 @@ El `**` final permite que Supabase acepte el parámetro `?next=` que añade la a
 correspondiente (`https://*-<tu-equipo>.vercel.app/**`).
 
 Mientras la app de Google esté en modo **Testing**, añade tu cuenta como usuario de
-prueba en **Google Auth Platform → Audience → Test users**; si no, Google mostrará
-«Acceso bloqueado». Al publicar la app (solo se usan scopes básicos) desaparece ese
-límite y la sesión de prueba deja de caducar a los 7 días.
+prueba en **Google Auth Platform → Audience → Test users** si vas a solicitar scopes
+sensibles. Con los scopes básicos que usa Supabase (`openid`, `email` y `profile`) no
+hace falta: Google exceptúa estos casos del límite de test users, del aviso de app no
+verificada y de la caducidad de la autorización a los 7 días. Aun así, publicar la app
+en **Audience → Publish app** es lo recomendable para dejarla disponible de forma
+general.
 
 El flujo completo es:
 
@@ -120,6 +123,62 @@ Google → https://<project-ref>.supabase.co/auth/v1/callback
        → https://tu-app/auth/callback (intercambia el código por cookies de sesión)
        → /
 ```
+
+## Páginas públicas y publicación en Google
+
+La app tiene tres páginas informativas accesibles sin sesión:
+
+| Página | URL | Uso |
+| --- | --- | --- |
+| Sobre Tiquet | <https://tiquet-two.vercel.app/about> | Página principal de la app |
+| Privacidad | <https://tiquet-two.vercel.app/privacy> | Política de privacidad |
+| Términos | <https://tiquet-two.vercel.app/terms> | Términos de uso |
+
+Estas rutas están en la allowlist de `src/proxy.ts` y viven fuera del grupo `(app)`,
+así que no montan providers, splash ni sesión. Son componentes de servidor: el
+contenido llega en el HTML aunque el navegador no ejecute JavaScript.
+
+### Campos en Google Auth Platform → Branding
+
+- **App name:** Tiquet
+- **User support email:** `borjablp2@gmail.com`
+- **App logo:** [`public/icons/icon-512.png`](./public/icons/icon-512.png) (512×512)
+- **Application home page:** `https://tiquet-two.vercel.app/about`
+- **Application privacy policy link:** `https://tiquet-two.vercel.app/privacy`
+- **Application terms of service link:** `https://tiquet-two.vercel.app/terms`
+- **Authorized domains:** `tiquet-two.vercel.app`
+- **Developer contact email:** `borjablp2@gmail.com`
+
+Orden recomendado: rellenar los campos de **Branding** → guardar → **Audience →
+Publish app**. Si quieres que el nombre y el logo aparezcan en la pantalla de
+consentimiento, hay que solicitar además la **verificación de marca**; sin ella Google
+muestra solo el dominio del proyecto.
+
+### ¿Hace falta publicar?
+
+Funcionalmente no. Supabase solicita únicamente `openid`, `email` y `profile`, y Google
+exceptúa las apps externas en estado *Testing* que solo piden esos scopes básicos: no
+exige lista de test users, no muestra el aviso de app no verificada y la autorización no
+caduca a los 7 días. Publicar elimina el estado *Testing* y deja la app disponible de
+forma general, que es lo esperable para una app real.
+
+## Seguridad y gestión de claves
+
+- El frontend solo usa `NEXT_PUBLIC_SUPABASE_URL` y
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. La clave publishable está diseñada para el
+  navegador; RLS y las políticas de Storage limitan cada usuario a sus propios datos.
+- Nunca añadas `SUPABASE_SERVICE_ROLE_KEY`, `sb_secret_...`, el Client Secret de Google
+  ni claves privadas a variables `NEXT_PUBLIC_*`, al código, a `opencode.json` o a la
+  documentación.
+- `.env.local` está ignorado por Git (`.env*` salvo `.env.example`) y `.vercel` también.
+  No subas archivos `.env`, `.pem`, `.p12` ni credenciales de la CLI.
+- En Vercel, configura las variables en **Settings → Environment Variables** para
+  Production, Preview y Development. No las pegues en el repositorio.
+- Si una clave secreta se expone, revócala en Supabase o Google Cloud, rota el valor y
+  vuelve a desplegar.
+- Auditoría realizada: sin claves secretas reales (`service_role`, `sb_secret_`,
+  `GOCSPX`, `client_secret`, claves privadas) en el árbol de trabajo ni en el historial
+  de Git. Los source maps del despliegue no son públicos.
 
 ## Desarrollo local
 
@@ -173,22 +232,30 @@ npx vercel --prod
 - Las fotos se muestran con URLs firmadas que caducan a las 24 horas.
 - No hay analítica ni cookies de seguimiento.
 - Puedes descargar una copia ZIP o borrar todos tus datos desde **Ajustes**.
+- La política completa está en <https://tiquet-two.vercel.app/privacy> y los términos
+  de uso en <https://tiquet-two.vercel.app/terms>.
 
 ## Estructura
 
 ```
 src/
   app/
+    (app)/             Rutas con sesión, providers y navegación inferior
+      login/           Pantalla de acceso con Google
+      receipts/        Listado, alta y detalle de tickets
+      scan/            Acceso rápido a la cámara
+      settings/        Cuenta, copias y borrado
+      stats/           Estadísticas mensuales
+    about/             Página pública de presentación
     auth/callback/     Intercambio del código OAuth por sesión
-    login/             Pantalla de acceso con Google
-    receipts/          Listado, alta y detalle de tickets
-    stats/             Estadísticas mensuales
-    settings/          Cuenta, copias y borrado
-  components/          UI, formularios, providers y navegación
+    privacy/           Política de privacidad
+    terms/             Términos de uso
+  components/          UI, formularios, providers, navegación y páginas públicas
   lib/
     supabase/          Cliente, servidor, configuración y CRUD
     image.ts           Compresión y miniaturas en canvas
     backup.ts          Exportación CSV/ZIP e importación
+    public-routes.ts   Allowlist de rutas sin sesión
     stats.ts           Agregados mensuales
     dates.ts           Utilidades de fechas y meses
   proxy.ts             Refresco de sesión y protección de rutas

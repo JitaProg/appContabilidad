@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ChevronRight,
@@ -300,6 +301,17 @@ export default function SettingsPage() {
                 Las fotos se guardan en un bucket privado y solo se muestran mediante
                 enlaces temporales firmados. No se envían a ningún otro servicio.
               </p>
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-line pt-3 text-xs font-semibold">
+              <Link href="/about" className="text-brand underline-offset-2 hover:underline">
+                Sobre Tiquet
+              </Link>
+              <Link href="/privacy" className="text-brand underline-offset-2 hover:underline">
+                Política de privacidad
+              </Link>
+              <Link href="/terms" className="text-brand underline-offset-2 hover:underline">
+                Términos de uso
+              </Link>
             </div>
           </Card>
         </section>

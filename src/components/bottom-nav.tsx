@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Camera, ChartPie, House, ReceiptText, Settings } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { isPublicPath } from "@/lib/public-routes";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -24,7 +25,7 @@ const NAV_ITEMS: NavItem[] = [
 export function BottomNav() {
   const pathname = usePathname();
 
-  if (pathname === "/login" || pathname.startsWith("/auth/")) return null;
+  if (isPublicPath(pathname)) return null;
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40">

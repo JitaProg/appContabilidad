@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Loader2, ShieldCheck } from "lucide-react";
 import { AppLogo } from "@/components/app-logo";
@@ -141,10 +142,45 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <p className="mx-auto mt-10 max-w-sm text-center text-[0.7rem] leading-relaxed text-muted">
-        Al continuar aceptas que tus tickets y fotos se guarden en tu cuenta de
-        Tiquet. Puedes exportarlos o borrarlos cuando quieras desde Ajustes.
-      </p>
+      <div className="mx-auto mt-10 max-w-sm text-center text-[0.7rem] leading-relaxed text-muted">
+        <p>
+          Al continuar aceptas los{" "}
+          <Link
+            href="/terms"
+            className="font-semibold text-ink-soft underline-offset-2 hover:text-brand hover:underline"
+          >
+            términos de uso
+          </Link>{" "}
+          y la{" "}
+          <Link
+            href="/privacy"
+            className="font-semibold text-ink-soft underline-offset-2 hover:text-brand hover:underline"
+          >
+            política de privacidad
+          </Link>
+          . Puedes exportar o borrar tus datos cuando quieras desde Ajustes.
+        </p>
+        <nav
+          aria-label="Enlaces informativos"
+          className="mt-3 flex items-center justify-center gap-3"
+        >
+          <Link href="/about" className="font-medium hover:text-brand">
+            Sobre Tiquet
+          </Link>
+          <span aria-hidden="true" className="text-line">
+            ·
+          </span>
+          <Link href="/privacy" className="font-medium hover:text-brand">
+            Privacidad
+          </Link>
+          <span aria-hidden="true" className="text-line">
+            ·
+          </span>
+          <Link href="/terms" className="font-medium hover:text-brand">
+            Términos
+          </Link>
+        </nav>
+      </div>
     </div>
   );
 }
