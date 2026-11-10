@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -261,6 +262,16 @@ export function ProgressBar({ value, label }: { value: number; label?: string })
 /*                                   Diálogo                                  */
 /* -------------------------------------------------------------------------- */
 
+const subscribeToNothing = () => () => {};
+
+function useClientMounted() {
+  return useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  );
+}
+
 export function Dialog({
   open,
   onClose,
@@ -276,6 +287,8 @@ export function Dialog({
   children?: ReactNode;
   footer?: ReactNode;
 }) {
+  const mounted = useClientMounted();
+
   useEffect(() => {
     if (!open) return;
 
@@ -293,9 +306,9 @@ export function Dialog({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
       <button
         type="button"
@@ -324,6 +337,7 @@ export function Dialog({
         {children ? <div className="mt-4">{children}</div> : null}
         {footer ? <div className="mt-5 flex gap-2">{footer}</div> : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

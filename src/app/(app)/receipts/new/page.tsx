@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { ReceiptForm, type ReceiptFormResult } from "@/components/receipt-form";
@@ -22,6 +23,7 @@ export default function NewReceiptPage() {
   const merchants = useRecentMerchants();
 
   const [pendingSave, setPendingSave] = useState<PendingSave | null>(null);
+  const [formKey, setFormKey] = useState(0);
 
   async function saveReceipt(result: ReceiptFormResult) {
     const id = await addReceipt(
@@ -32,6 +34,13 @@ export default function NewReceiptPage() {
       },
       { image: result.image, thumb: result.thumb },
     );
+
+    // Remonta el formulario vacío antes de navegar al detalle. Si el usuario
+    // vuelve a "Nuevo ticket", Next puede reutilizar esta página y no queremos
+    // que reaparezcan los datos del ticket anterior.
+    flushSync(() => {
+      setFormKey((current) => current + 1);
+    });
 
     showToast("Ticket guardado correctamente.");
     router.push(`/receipts/${id}`);
@@ -82,6 +91,7 @@ export default function NewReceiptPage() {
 
       <div className="px-5 pt-5">
         <ReceiptForm
+          key={formKey}
           initial={{ purchaseDate: todayISO() }}
           submitLabel="Guardar ticket"
           merchantSuggestions={merchants ?? []}

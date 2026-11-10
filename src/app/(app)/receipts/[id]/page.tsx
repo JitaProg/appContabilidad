@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Pencil, ReceiptText, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { BlobImage } from "@/components/blob-image";
+import { ImageLightbox } from "@/components/image-lightbox";
 import { ReceiptForm, type ReceiptFormResult } from "@/components/receipt-form";
 import {
   Button,
@@ -221,19 +222,12 @@ export default function ReceiptDetailPage() {
         }
       />
 
-      <Dialog
+      <ImageLightbox
         open={viewImage}
         onClose={() => setViewImage(false)}
-        title={receipt.merchant}
-      >
-        {receipt.imageUrl ? (
-          <BlobImage
-            src={receipt.imageUrl}
-            alt={`Ticket de ${receipt.merchant}`}
-            className="max-h-[70vh] w-full rounded-2xl object-contain"
-          />
-        ) : null}
-      </Dialog>
+        src={receipt.imageUrl}
+        alt={`Ticket de ${receipt.merchant}`}
+      />
     </div>
   );
 }
